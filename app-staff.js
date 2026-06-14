@@ -740,7 +740,7 @@ const ACHIEVEMENTS = [
     id:   'unicorn',
     icon: '🦄',
     name: 'Harvinainen helmi',
-    desc: 'Ainoa pelaaja joka veikkasi tietyn ottelun oikein',
+    desc: 'Ainoa henkilö joka veikkasi tietyn ottelun oikein',
     check: ({ preds }) => {
       return MATCHES.some(m => {
         const r = results[m.id]; if (!r) return false;
@@ -759,12 +759,13 @@ const ACHIEVEMENTS = [
     id:   'gambler',
     icon: '🐉',
     name: 'Uhkapeluri',
-    desc: 'Veikannut yli 3 maalin eroa ja osunut',
+    desc: 'Tarkka tulos (3p) ottelussa jossa maaliero on yli 3',
     check: ({ preds }) => {
       return MATCHES.some(m => {
         const r = results[m.id]; if (!r) return false;
         const p = preds[m.id];   if (!p || p.h === null) return false;
-        return Math.abs(p.h - p.a) > 3 && calcPts(p.h, p.a, r.h, r.a) > 0;
+        if (calcPts(p.h, p.a, r.h, r.a) !== 3) return false;
+        return Math.abs(r.h - r.a) > 3;
       });
     },
   },
@@ -1363,7 +1364,7 @@ function drawChart(played) {
   });
 
   document.getElementById('chart-sub').textContent =
-    `${played.length} pelattua ottelua · ${selected.length}/${chartAllPlayers.length} pelaajaa näkyvissä`;
+    `${played.length} pelattua ottelua · ${selected.length}/${chartAllPlayers.length} henkilöä näkyvissä`;
 
   const ctx = document.getElementById('pts-chart').getContext('2d');
   if (chartInstance) chartInstance.destroy();
