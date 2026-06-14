@@ -759,12 +759,12 @@ const ACHIEVEMENTS = [
     id:   'gambler',
     icon: '🐉',
     name: 'Uhkapeluri',
-    desc: 'Tarkka tulos (3p) ottelussa jossa maaliero on yli 3',
+    desc: 'Oikea voittaja ja maaliero (2p+) ottelussa jossa maaliero on yli 3',
     check: ({ preds }) => {
       return MATCHES.some(m => {
         const r = results[m.id]; if (!r) return false;
         const p = preds[m.id];   if (!p || p.h === null) return false;
-        if (calcPts(p.h, p.a, r.h, r.a) !== 3) return false;
+        if (calcPts(p.h, p.a, r.h, r.a) < 2) return false;
         return Math.abs(r.h - r.a) > 3;
       });
     },
