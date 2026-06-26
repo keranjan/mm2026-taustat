@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Antonio:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style-staff.css?v=10" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
 
@@ -103,6 +103,25 @@
 
   <!-- Tulostaulukko -->
   <div id="tab-leaderboard" class="section">
+
+    <!-- Yhteistavoite -->
+    <div class="team-goal" id="team-goal">
+      <div class="team-goal-header">
+        <div>
+          <div class="team-goal-title">🎯 P2014/2 Yhteistavoite</div>
+          <div class="team-goal-level" id="team-goal-level">Taso 1</div>
+        </div>
+        <div class="team-goal-pts" id="team-goal-pts">0 pistettä</div>
+      </div>
+      <div class="team-goal-bar-wrap">
+        <div class="team-goal-bar-fill" id="team-goal-bar"></div>
+      </div>
+      <div class="team-goal-info">
+        <span id="team-goal-pct">0%</span>
+        <span id="team-goal-remaining"></span>
+      </div>
+    </div>
+
     <div class="lb-table">
       <div class="lb-head">
         <div>#</div>
@@ -196,6 +215,6 @@
 
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app-staff.js?v=11"></script>
+<script src="app-staff.js?v=17"></script>
 </body>
 </html>

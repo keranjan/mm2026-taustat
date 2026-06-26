@@ -3,9 +3,12 @@
    ═══════════════════════════════════════════ */
 
 /* ── Asetukset – muuta ADMIN_PIN ── */
-const ADMIN_PIN    = '35242084';
-const SUPABASE_URL = 'https://oaoppcicnsnvjkbbjfda.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_5my6qDEV3aFTxP8F8xVnlg_2mPaekjo';
+const ADMIN_PIN      = '35242083';
+const SUPABASE_URL   = 'https://oaoppcicnsnvjkbbjfda.supabase.co';
+const SUPABASE_KEY   = 'sb_publishable_5my6qDEV3aFTxP8F8xVnlg_2mPaekjo';
+const FD_API_KEY     = '4d37680e3ea84e4db9f86422e349399e'; // football-data.org
+const FD_COMPETITION = 'WC';
+const FD_SEASON      = '2026';
 
 /* ── Supabase REST API -apufunktio ── */
 const api = (path, opts = {}) => {
@@ -209,6 +212,12 @@ let adminOpen   = false;
 
 function isLocked(m) { return !!ROUND_NAMES[m.g] || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
+function isLive(m) {
+  const start = new Date(m.t).getTime();
+  const now   = Date.now();
+  // Live jos peli alkanut mutta alle 115 min sitten (90 + lisäaika + tauot)
+  return now >= start && now <= start + 115 * 60 * 1000 && !results[m.id];
+}
 
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('fi-FI', {
@@ -251,6 +260,81 @@ async function loadResults() {
     rows.forEach(r => { results[r.match_id] = { h: r.home_goals, a: r.away_goals }; });
   } catch (e) { console.error('loadResults:', e); }
 }
+
+// Joukkuenimien kartoitus football-data.org → sovelluksen nimet
+const FD_TEAM_MAP = {
+  'Mexico': 'Mexico', 'South Africa': 'South Africa', 'South Korea': 'South Korea',
+  'Czechia': 'Czechia', 'Czech Republic': 'Czechia', 'Canada': 'Canada',
+  'Bosnia and Herzegovina': 'Bosnia', 'Bosnia-Herzegovina': 'Bosnia',
+  'USA': 'USA', 'United States': 'USA', 'Paraguay': 'Paraguay',
+  'Qatar': 'Qatar', 'Switzerland': 'Switzerland', 'Brazil': 'Brazil',
+  'Morocco': 'Morocco', 'Haiti': 'Haiti', 'Scotland': 'Scotland',
+  'Australia': 'Australia', 'Turkey': 'Turkiye', 'Türkiye': 'Turkiye',
+  'Germany': 'Germany', 'Curaçao': 'Curacao', 'Netherlands': 'Netherlands',
+  'Japan': 'Japan', "Côte d'Ivoire": 'Ivory Coast', 'Ivory Coast': 'Ivory Coast',
+  'Ecuador': 'Ecuador', 'Sweden': 'Sweden', 'Tunisia': 'Tunisia',
+  'Spain': 'Spain', 'Cape Verde': 'Cape Verde', 'Belgium': 'Belgium',
+  'Egypt': 'Egypt', 'Saudi Arabia': 'Saudi Arabia', 'Uruguay': 'Uruguay',
+  'Iran': 'Iran', 'New Zealand': 'New Zealand', 'France': 'France',
+  'Senegal': 'Senegal', 'Iraq': 'Iraq', 'Norway': 'Norway',
+  'Argentina': 'Argentina', 'Algeria': 'Algeria', 'Austria': 'Austria',
+  'Jordan': 'Jordan', 'Portugal': 'Portugal', 'DR Congo': 'DR Congo',
+  'Congo DR': 'DR Congo', 'England': 'England', 'Croatia': 'Croatia',
+  'Ghana': 'Ghana', 'Panama': 'Panama', 'Uzbekistan': 'Uzbekistan',
+  'Colombia': 'Colombia',
+};
+
+async function fetchLiveResults() {
+  try {
+    const res = await fetch(
+      `https://api.football-data.org/v4/competitions/${FD_COMPETITION}/matches?season=${FD_SEASON}&status=IN_PLAY,PAUSED,FINISHED`,
+      { headers: { 'X-Auth-Token': FD_API_KEY } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    const matches = data.matches || [];
+
+    for (const fdMatch of matches) {
+      const score = fdMatch.score;
+      if (!score || score.fullTime.home === null) continue;
+
+      // Tunnista ottelu sovelluksen MATCHES-listasta joukkuenimien perusteella
+      const fdHome = FD_TEAM_MAP[fdMatch.homeTeam.name] || fdMatch.homeTeam.name;
+      const fdAway = FD_TEAM_MAP[fdMatch.awayTeam.name] || fdMatch.awayTeam.name;
+
+      const appMatch = MATCHES.find(m =>
+        (m.h === fdHome && m.a === fdAway) ||
+        (m.h === fdAway && m.a === fdHome)
+      );
+      if (!appMatch) continue;
+
+      // Käytä fullTime jos peli päättynyt, muuten currentScore
+      const isFinished = fdMatch.status === 'FINISHED';
+      const homeGoals = isFinished ? score.fullTime.home : (score.currentScore?.home ?? score.fullTime.home);
+      const awayGoals = isFinished ? score.fullTime.away : (score.currentScore?.away ?? score.fullTime.away);
+
+      if (homeGoals === null || awayGoals === null) continue;
+
+      // Normalisoi jos joukkueet ovat käänteisessä järjestyksessä
+      const h = appMatch.h === fdHome ? homeGoals : awayGoals;
+      const a = appMatch.h === fdHome ? awayGoals : homeGoals;
+
+      // Tallenna vain päättyneet pelit Supabaseen (live-tilassa ei tallenneta)
+      if (isFinished && (!results[appMatch.id] || results[appMatch.id].h !== h || results[appMatch.id].a !== a)) {
+        await api('results?on_conflict=match_id', {
+          method: 'POST',
+          prefer: 'resolution=merge-duplicates',
+          body: JSON.stringify({ match_id: appMatch.id, home_goals: h, away_goals: a }),
+        });
+      }
+
+      // Päivitä paikallinen tila aina (myös live-tilassa)
+      results[appMatch.id] = { h, a };
+    }
+  } catch (e) { console.error('fetchLiveResults:', e); }
+}
+
+
 
 let savedPredictions = {}; // kopio tietokannasta, ei muutu ennen seuraavaa latausta
 
@@ -424,6 +508,7 @@ function topPredictions(id) {
 function matchCardHtml(m) {
   const p      = getPred(m.id);
   const locked = isLocked(m);
+  const live   = isLive(m);
   const hv     = p.h !== null ? p.h : null;
   const av     = p.a !== null ? p.a : null;
   const dis    = locked ? 'disabled' : '';
@@ -436,7 +521,14 @@ function matchCardHtml(m) {
   const savedTag = saved
     ? '<span class="pred-saved-tag">✓ tallennettu</span>'
     : (filled ? '<span class="pred-unsaved-tag">● tallentamatta</span>' : '');
-  return `<div class="match-card ${locked ? 'locked' : ''} ${isKnockout(m) ? 'knockout' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
+
+  const liveScore = live && results[m.id]
+    ? `<span class="live-score">${results[m.id].h}–${results[m.id].a}</span>` : '';
+  const metaRight = live
+    ? `<span class="live-badge">🔴 LIVE${results[m.id] ? ' ' + results[m.id].h + '–' + results[m.id].a : ''}</span>`
+    : locked ? '&#128274; lukittu' : savedTag;
+
+  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
     <div class="match-row">
       <div class="team-block">
         <span class="flag">${flag(m.h)}</span>
@@ -462,7 +554,7 @@ function matchCardHtml(m) {
     </div>
     <div class="match-meta">
       <span>${ROUND_NAMES[m.g] ? `${fmtDate(m.t)} &middot; ${fmtTime(m.t)}` : `Lohko ${m.g} &middot; ${fmtTime(m.t)}`}</span>
-      <span>${locked ? '&#128274; lukittu' : savedTag}</span>
+      <span>${metaRight}</span>
     </div>
     ${resultBadge(m.id)}
     ${locked ? topPredictions(m.id) : ''}
@@ -514,7 +606,7 @@ function renderMatches() {
   const sorted = [...MATCHES].sort((a, b) => new Date(a.t) - new Date(b.t));
   let html = '', lastKey = '';
   for (const m of sorted) {
-    if (hideLocked && isLocked(m)) continue;
+    if (hideLocked && isLocked(m) && !isLive(m)) continue;
     const isKnockoutMatch = !!ROUND_NAMES[m.g];
     const day = dayKey(m.t);
     const key = isKnockoutMatch ? `${m.g}__${day}` : day;
@@ -2050,18 +2142,31 @@ async function init() {
   renderMatches();
   document.getElementById('lb-body').innerHTML = '<div class="empty-state">Ladataan…</div>';
   await loadResults();
+  await fetchLiveResults();
   await loadAllPredictions();
   await loadAllBrackets();
   await loadBracket();
   await loadActualBracket();
   renderMatches();
   renderLeaderboard();
+
+  // Normaali päivityssykli: 60s
   setInterval(async () => {
     await loadResults();
     await loadAllPredictions();
     await loadAllBrackets();
     renderMatches();
     renderLeaderboard();
+  }, 60_000);
+
+  // Live-haku: 60s (football-data.org free tier: 10 req/min)
+  setInterval(async () => {
+    const hasLive = MATCHES.some(m => isLive(m));
+    if (hasLive) {
+      await fetchLiveResults();
+      renderMatches();
+      renderLeaderboard();
+    }
   }, 60_000);
   // Sulje profiili Escape-näppäimellä
   document.addEventListener('keydown', e => {
