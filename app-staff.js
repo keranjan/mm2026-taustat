@@ -286,10 +286,15 @@ const FD_TEAM_MAP = {
 
 async function fetchLiveResults() {
   try {
-    const res = await fetch(
-      `https://api.football-data.org/v4/competitions/${FD_COMPETITION}/matches?season=${FD_SEASON}&status=IN_PLAY,PAUSED,FINISHED`,
-      { headers: { 'X-Auth-Token': FD_API_KEY } }
-    );
+    // Kutsutaan Supabase Edge Functionia proxyna CORS-ongelman välttämiseksi
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/football-results?path=/competitions/${FD_COMPETITION}/matches&params=season=${FD_SEASON}%26status=IN_PLAY,PAUSED,FINISHED`;
+
+    const res = await fetch(proxyUrl, {
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+      }
+    });
     if (!res.ok) return;
     const data = await res.json();
     const matches = data.matches || [];
