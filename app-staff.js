@@ -290,6 +290,24 @@ async function loadAllPredictions() {
   } catch (e) { console.error('loadAllPredictions:', e); }
 }
 
+async function loadAllBrackets() {
+  try {
+    const res = await api(`bracket_predictions?select=*`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    rows.forEach(row => {
+      if (row.username === '__ACTUAL__') return;
+      if (!users[row.username]) users[row.username] = { predictions: {} };
+      users[row.username].bracket = {
+        r16_1: row.r16_1, r16_2: row.r16_2, r16_3: row.r16_3, r16_4: row.r16_4,
+        r16_5: row.r16_5, r16_6: row.r16_6, r16_7: row.r16_7, r16_8: row.r16_8,
+        qf1: row.qf1, qf2: row.qf2, qf3: row.qf3, qf4: row.qf4,
+        finalist1: row.finalist1, finalist2: row.finalist2, champion: row.champion,
+      };
+    });
+  } catch (e) { console.error('loadAllBrackets:', e); }
+}
+
 /* ══════════════════════════════════════════
    VEIKKAUKSET
 ══════════════════════════════════════════ */
@@ -608,7 +626,11 @@ function calcUser(preds) {
 
 function renderLeaderboard() {
   const ranked = Object.entries(users)
-    .map(([name, data]) => ({ name, ...calcUser(data.predictions || {}), weekly: calcWeeklyPts(data.predictions || {}) }))
+    .map(([name, data]) => {
+      const base = calcUser(data.predictions || {});
+      const bracketPts = calcBracketPts(data.bracket);
+      return { name, ...base, bracketPts, total: base.total + bracketPts, weekly: calcWeeklyPts(data.predictions || {}) };
+    })
     .sort((a, b) => b.total - a.total || b.exact - a.exact || b.diff - a.diff);
 
   // Viikon veikkaaja — kaikki jotka yltävät viim. 7 pv huipputulokseen
@@ -620,7 +642,7 @@ function renderLeaderboard() {
   const html = ranked.length
     ? ranked.map((u, i) => {
         const preds     = users[u.name]?.predictions || {};
-        const achiev    = calcAchievements(preds, u);
+        const achiev    = calcAchievements(preds, u, users[u.name]?.bracket, u.bracketPts);
         const icons     = achiev.filter(a => a.unlocked).map(a => `<span title="${a.name}">${a.icon}</span>`).join('');
         const isWeekly  = weeklyWinners.has(u.name);
         return `<div class="lb-entry${u.name === currentUser ? ' me' : ''}" onclick="openProfile('${u.name.replace(/'/g,"\\'")}', ${i + 1})" style="cursor:pointer">
@@ -628,6 +650,7 @@ function renderLeaderboard() {
           <div class="lb-name-cell">
             <div class="lb-name">${u.name}${u.name === currentUser ? ' <span class="lb-me-tag">(sinä)</span>' : ''}</div>
             ${isWeekly ? `<div class="lb-weekly-row"><span class="badge-weekly">⭐ viikon veikkaaja</span></div>` : ''}
+            ${u.bracketPts > 0 ? `<div class="lb-weekly-row"><span class="badge-bracket" title="Mestaruusveikkauksen bonuspisteet">🏆 +${u.bracketPts}p mestaruus</span></div>` : ''}
             ${icons ? `<div class="lb-icons lb-icons-mobile">${icons}</div>` : ''}
           </div>
           <div class="lb-icons lb-icons-desktop">${icons}</div>
@@ -865,6 +888,68 @@ const ACHIEVEMENTS = [
       return calcPts(p.h, p.a, r.h, r.a) === 3;
     },
   },
+  // ── Mestaruusveikkaus ───────────────────────────────────────
+  {
+    id:   'oracle_qf',
+    icon: '🧙',
+    name: 'Ennustaja',
+    desc: 'Vähintään 2 oikeaa puolivälierävoittajaa mestaruusveikkauksessa',
+    check: ({ bracket }) => {
+      if (!bracket) return false;
+      const actualQf = [actualBracket.qf1, actualBracket.qf2, actualBracket.qf3, actualBracket.qf4].filter(Boolean);
+      const userQf   = [bracket.qf1, bracket.qf2, bracket.qf3, bracket.qf4].filter(Boolean);
+      const hits = userQf.filter(t => actualQf.includes(t)).length;
+      return hits >= 2;
+    },
+  },
+  {
+    id:   'finalist_seer',
+    icon: '🥈',
+    name: 'Finalistitietäjä',
+    desc: 'Arvasi vähintään yhden MM-finalistin oikein',
+    check: ({ bracket }) => {
+      if (!bracket) return false;
+      const actualFinalists = [actualBracket.finalist1, actualBracket.finalist2].filter(Boolean);
+      const userFinalists   = [bracket.finalist1, bracket.finalist2].filter(Boolean);
+      return userFinalists.some(t => actualFinalists.includes(t));
+    },
+  },
+  {
+    id:   'kingmaker',
+    icon: '👑',
+    name: 'Kruununtekijä',
+    desc: 'Arvasi MM-mestarin oikein',
+    check: ({ bracket }) => {
+      if (!bracket || !bracket.champion || !actualBracket.champion) return false;
+      return bracket.champion === actualBracket.champion;
+    },
+  },
+  {
+    id:   'top8_scout',
+    icon: '🔭',
+    name: 'Skautti',
+    desc: 'Vähintään 4 oikeaa joukkuetta 8 parhaan veikkauksessa',
+    check: ({ bracket }) => {
+      if (!bracket) return false;
+      const actualR16 = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8']
+        .map(k => actualBracket[k]).filter(Boolean);
+      const userR16 = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8']
+        .map(k => bracket[k]).filter(Boolean);
+      return userR16.filter(t => actualR16.includes(t)).length >= 4;
+    },
+  },
+  {
+    id:   'goat',
+    icon: '🐐',
+    name: 'GOAT',
+    desc: 'Yli 75 pistettä + oikea mestari mestaruusveikkauksessa + vähintään 10 tarkkaa tulosta',
+    check: ({ stats, bracket }) => {
+      if (stats.total < 75) return false;
+      if (stats.exact < 10) return false;
+      if (!bracket || !bracket.champion || !actualBracket.champion) return false;
+      return bracket.champion === actualBracket.champion;
+    },
+  },
 ];
 
 function calcStreak(preds) {
@@ -909,11 +994,11 @@ function calcWeeklyPts(preds) {
   return pts;
 }
 
-function calcAchievements(preds, stats) {
+function calcAchievements(preds, stats, bracketData, bracketPts) {
   const streak = calcStreak(preds);
   return ACHIEVEMENTS.map(a => ({
     ...a,
-    unlocked: a.check({ preds, stats, streak }),
+    unlocked: a.check({ preds, stats, streak, bracket: bracketData, bracketPts: bracketPts || 0, actualBracket }),
   }));
 }
 
@@ -954,7 +1039,7 @@ function openProfile(name, rank) {
   const hitRate     = totalPlayed ? Math.round((stats.exact + stats.diff + stats.win) / totalPlayed * 100) : 0;
 
   // Saavutukset
-  const achievements = calcAchievements(preds, stats);
+  const achievements = calcAchievements(preds, stats, data.bracket, calcBracketPts(data.bracket));
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   // Pisterivit
@@ -1172,6 +1257,7 @@ function adminCardHtml(m) {
 }
 
 function renderAdmin() {
+  renderAdminBracket();
   const sorted = [...MATCHES].sort((a, b) => new Date(a.t) - new Date(b.t));
   let html = '', lastDay = '';
   for (const m of sorted) {
@@ -1200,6 +1286,7 @@ function showTab(tab, btn) {
   }
   if (tab === 'leaderboard') renderLeaderboard();
   if (tab === 'chart') renderChart();
+  if (tab === 'bracket') renderBracket();
   if (tab === 'admin' && adminOpen) renderAdmin();
 }
 
@@ -1409,6 +1496,485 @@ function toast(msg, type = 'info') {
 }
 
 /* ══════════════════════════════════════════
+   MESTARUUSVEIKKAUS (BRACKET)
+══════════════════════════════════════════ */
+
+const ALL_TEAMS = Object.keys(FLAGS).sort((a, b) => fi(a).localeCompare(fi(b), 'fi'));
+
+// bracket = { qf1, qf2, qf3, qf4, finalist1, finalist2, champion }
+const EMPTY_BRACKET = () => ({
+  r16_1: null, r16_2: null, r16_3: null, r16_4: null,
+  r16_5: null, r16_6: null, r16_7: null, r16_8: null,
+  qf1: null, qf2: null, qf3: null, qf4: null,
+  finalist1: null, finalist2: null, champion: null,
+});
+let bracket       = EMPTY_BRACKET();
+let actualBracket = EMPTY_BRACKET();
+let savedBracket  = EMPTY_BRACKET(); // kopio viimeksi tallennetusta
+let bracketLocked = false;
+let teamPickerTarget = null;
+
+async function loadActualBracket() {
+  try {
+    const res = await api(`bracket_predictions?username=eq.__ACTUAL__&select=*`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows.length > 0) {
+      const row = rows[0];
+      actualBracket = {
+        r16_1: row.r16_1, r16_2: row.r16_2, r16_3: row.r16_3, r16_4: row.r16_4,
+        r16_5: row.r16_5, r16_6: row.r16_6, r16_7: row.r16_7, r16_8: row.r16_8,
+        qf1: row.qf1, qf2: row.qf2, qf3: row.qf3, qf4: row.qf4,
+        finalist1: row.finalist1, finalist2: row.finalist2, champion: row.champion,
+      };
+    }
+  } catch (e) { console.error('loadActualBracket:', e); }
+}
+
+async function saveActualBracket() {
+  const btn = document.querySelector('.admin-bracket-section .btn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Tallennetaan…';
+
+  const res = await api('bracket_predictions?on_conflict=username', {
+    method: 'POST',
+    prefer: 'resolution=merge-duplicates',
+    body: JSON.stringify({
+      username: '__ACTUAL__',
+      r16_1: actualBracket.r16_1, r16_2: actualBracket.r16_2, r16_3: actualBracket.r16_3, r16_4: actualBracket.r16_4,
+      r16_5: actualBracket.r16_5, r16_6: actualBracket.r16_6, r16_7: actualBracket.r16_7, r16_8: actualBracket.r16_8,
+      qf1: actualBracket.qf1, qf2: actualBracket.qf2, qf3: actualBracket.qf3, qf4: actualBracket.qf4,
+      finalist1: actualBracket.finalist1, finalist2: actualBracket.finalist2, champion: actualBracket.champion,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = orig;
+
+  if (res.ok) {
+    toast('Oikeat tulokset tallennettu — pisteet päivittyvät', 'success');
+    renderLeaderboard();
+  } else {
+    toast('Tallennuksessa tapahtui virhe — yritä uudelleen', 'error');
+  }
+}
+
+// Laske bonuspisteet pelaajan bracket-veikkauksesta verrattuna oikeisiin tuloksiin
+function calcBracketPts(userBracket) {
+  if (!userBracket) return 0;
+  let pts = 0;
+
+  // R16 → 8 parasta: +1p per oikea
+  const actualR16 = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8']
+    .map(k => actualBracket[k]).filter(Boolean);
+  const userR16 = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8']
+    .map(k => userBracket[k]).filter(Boolean);
+  userR16.forEach(team => { if (actualR16.includes(team)) pts += 1; });
+
+  // QF → 4 parasta: +2p per oikea
+  const actualQf = [actualBracket.qf1, actualBracket.qf2, actualBracket.qf3, actualBracket.qf4].filter(Boolean);
+  const userQf   = [userBracket.qf1, userBracket.qf2, userBracket.qf3, userBracket.qf4].filter(Boolean);
+  userQf.forEach(team => { if (actualQf.includes(team)) pts += 2; });
+
+  // Finalistit: +5p per oikea
+  const actualFinalists = [actualBracket.finalist1, actualBracket.finalist2].filter(Boolean);
+  const userFinalists   = [userBracket.finalist1, userBracket.finalist2].filter(Boolean);
+  userFinalists.forEach(team => { if (actualFinalists.includes(team)) pts += 5; });
+
+  // Mestari: +10p
+  if (userBracket.champion && actualBracket.champion && userBracket.champion === actualBracket.champion) {
+    pts += 10;
+  }
+  return pts;
+}
+
+function r32StartTime() {
+  const r32 = MATCHES.filter(m => m.g === 'R32');
+  if (!r32.length) return null;
+  return Math.min(...r32.map(m => new Date(m.t).getTime()));
+}
+
+function isBracketLocked() {
+  const start = r32StartTime();
+  return start !== null && Date.now() >= start;
+}
+
+async function loadBracket() {
+  try {
+    bracketLocked = isBracketLocked();
+    if (!currentUser) return;
+    const res = await api(`bracket_predictions?username=eq.${encodeURIComponent(currentUser)}&select=*`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows.length > 0) {
+      const row = rows[0];
+      bracket = {
+        r16_1: row.r16_1, r16_2: row.r16_2, r16_3: row.r16_3, r16_4: row.r16_4,
+        r16_5: row.r16_5, r16_6: row.r16_6, r16_7: row.r16_7, r16_8: row.r16_8,
+        qf1: row.qf1, qf2: row.qf2, qf3: row.qf3, qf4: row.qf4,
+        finalist1: row.finalist1, finalist2: row.finalist2, champion: row.champion,
+      };
+      savedBracket = { ...bracket };
+    }
+  } catch (e) { console.error('loadBracket:', e); }
+}
+
+async function saveBracket() {
+  if (!currentUser) { toast('Kirjoita ja tallenna nimesi ensin', 'error'); return; }
+  if (isBracketLocked()) { toast('Mestaruusveikkaus on lukittu', 'error'); return; }
+
+  const btn = document.getElementById('bracket-save-btn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Tallennetaan…';
+
+  const res = await api('bracket_predictions?on_conflict=username', {
+    method: 'POST',
+    prefer: 'resolution=merge-duplicates',
+    body: JSON.stringify({
+      username: currentUser,
+      r16_1: bracket.r16_1, r16_2: bracket.r16_2, r16_3: bracket.r16_3, r16_4: bracket.r16_4,
+      r16_5: bracket.r16_5, r16_6: bracket.r16_6, r16_7: bracket.r16_7, r16_8: bracket.r16_8,
+      qf1: bracket.qf1, qf2: bracket.qf2, qf3: bracket.qf3, qf4: bracket.qf4,
+      finalist1: bracket.finalist1, finalist2: bracket.finalist2, champion: bracket.champion,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = orig;
+
+  if (res.ok) {
+    savedBracket = { ...bracket };
+    renderBracket(); // päivittää tallentamattomien bannerin
+    toast('Mestaruusveikkaus tallennettu!', 'success');
+  } else {
+    toast('Tallennuksessa tapahtui virhe — yritä uudelleen', 'error');
+  }
+}
+
+function cleanupBracketDependencies(target) {
+  target = target || bracket;
+  const r16Teams = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8'].map(k => target[k]);
+  // QF-valintojen pitää olla R16:ssa valittuja
+  ['qf1','qf2','qf3','qf4'].forEach(k => {
+    if (target[k] && !r16Teams.includes(target[k])) target[k] = null;
+  });
+  const qfTeams = [target.qf1, target.qf2, target.qf3, target.qf4];
+  if (target.finalist1 && !qfTeams.includes(target.finalist1)) target.finalist1 = null;
+  if (target.finalist2 && !qfTeams.includes(target.finalist2)) target.finalist2 = null;
+  const finalists = [target.finalist1, target.finalist2];
+  if (target.champion && !finalists.includes(target.champion)) target.champion = null;
+}
+
+function bracketSlotHtml(key, label, type, target, locked) {
+  target = target || bracket;
+  locked = locked === undefined ? bracketLocked : locked;
+  const isAdmin = target === actualBracket;
+  const idPrefix = isAdmin ? 'admin-' : '';
+  const team = target[key];
+  const filled = !!team;
+  const cls = `bracket-slot ${type} ${filled ? 'filled' : 'empty'}`;
+  const onclick = locked ? '' : `onclick="openTeamPicker('${key}', ${isAdmin ? 'true' : 'false'})"`;
+  return `<div class="${cls}" id="${idPrefix}slot-${key}" ${onclick}>
+    <span class="slot-label">${label}</span>
+    ${filled
+      ? `<span class="flag">${flag(team)}</span><span class="team-name">${fi(team)}</span>`
+      : `<span>${locked ? 'Ei valittu' : 'Valitse joukkue'}</span>`}
+  </div>`;
+}
+
+function isBracketUnsaved() {
+  if (!currentUser) return false;
+  const keys = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8',
+                 'qf1','qf2','qf3','qf4','finalist1','finalist2','champion'];
+  return keys.some(k => bracket[k] !== savedBracket[k]);
+}
+
+function renderBracket() {
+  bracketLocked = isBracketLocked();
+
+  const lockedBanner = document.getElementById('bracket-locked-banner');
+  lockedBanner.style.display = bracketLocked ? 'block' : 'none';
+
+  // Tallentamattomien muutosten huomautus
+  const unsavedBanner = document.getElementById('bracket-unsaved-banner');
+  if (unsavedBanner) {
+    const show = !bracketLocked && isBracketUnsaved();
+    unsavedBanner.style.display = show ? 'block' : 'none';
+  }
+
+  const saveBtn = document.getElementById('bracket-save-btn');
+  saveBtn.style.display = bracketLocked ? 'none' : 'inline-flex';
+
+  const sub = document.getElementById('bracket-sub');
+  if (bracketLocked) {
+    sub.textContent = 'Mestaruusveikkauksesi on lukittu — pisteet lasketaan turnauksen edetessä.';
+  } else {
+    const start = r32StartTime();
+    if (start) {
+      const startIso = new Date(start).toISOString();
+      sub.textContent = `Valitse 8 joukkuetta 8 parhaan joukkoon, niistä 4 puolivälierävoittajaa, 2 finalistia ja 1 mestari. Lukittuu ${fmtDate(startIso)} klo ${fmtTime(startIso)}.`;
+    }
+  }
+
+  const tree = document.getElementById('bracket-tree');
+  tree.className = bracketLocked ? 'bracket-tree locked' : 'bracket-tree';
+
+  tree.innerHTML = `
+    <svg class="bracket-connectors" id="bracket-connectors"></svg>
+    <div class="bracket-col r16">
+      <div class="bracket-col-title">8 parasta</div>
+      ${bracketSlotHtml('r16_1', 'Top8 1', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_2', 'Top8 2', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_3', 'Top8 3', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_4', 'Top8 4', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_5', 'Top8 5', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_6', 'Top8 6', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_7', 'Top8 7', 'r16', bracket, bracketLocked)}
+      ${bracketSlotHtml('r16_8', 'Top8 8', 'r16', bracket, bracketLocked)}
+    </div>
+    <div class="bracket-col qf">
+      <div class="bracket-col-title">Puolivälierävoittajat</div>
+      ${bracketSlotHtml('qf1', 'QF 1', 'qf', bracket, bracketLocked)}
+      ${bracketSlotHtml('qf2', 'QF 2', 'qf', bracket, bracketLocked)}
+      ${bracketSlotHtml('qf3', 'QF 3', 'qf', bracket, bracketLocked)}
+      ${bracketSlotHtml('qf4', 'QF 4', 'qf', bracket, bracketLocked)}
+    </div>
+    <div class="bracket-col">
+      <div class="bracket-col-title">Finalistit</div>
+      ${bracketSlotHtml('finalist1', 'Finalisti 1', 'finalist', bracket, bracketLocked)}
+      ${bracketSlotHtml('finalist2', 'Finalisti 2', 'finalist', bracket, bracketLocked)}
+    </div>
+    <div class="bracket-col">
+      <div class="bracket-col-title">Mestari</div>
+      ${bracketSlotHtml('champion', '🏆 Mestari', 'champion', bracket, bracketLocked)}
+    </div>
+  `;
+  requestAnimationFrame(() => drawBracketConnectors('bracket-tree', 'bracket-connectors', ''));
+}
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('tab-bracket')?.classList.contains('active')) {
+    drawBracketConnectors('bracket-tree', 'bracket-connectors', '');
+  }
+  if (document.getElementById('admin-panel')?.style.display !== 'none') {
+    drawBracketConnectors('admin-bracket-tree', 'admin-bracket-connectors', 'admin-');
+  }
+});
+
+function drawBracketConnectors(treeId, svgId, idPrefix) {
+  const tree = document.getElementById(treeId);
+  const svg  = document.getElementById(svgId);
+  if (!tree || !svg) return;
+
+  const treeRect = tree.getBoundingClientRect();
+  svg.setAttribute('width',   treeRect.width);
+  svg.setAttribute('height',  treeRect.height);
+  svg.setAttribute('viewBox', `0 0 ${treeRect.width} ${treeRect.height}`);
+
+  if (treeRect.width < 400) { svg.innerHTML = ''; return; }
+
+  const midY = el => {
+    const r = el.getBoundingClientRect();
+    return r.top + r.height / 2 - treeRect.top;
+  };
+  const rightX = el => el.getBoundingClientRect().right - treeRect.left;
+  const leftX  = el => el.getBoundingClientRect().left  - treeRect.left;
+
+  const get = id => document.getElementById(`${idPrefix}${id}`);
+
+  const r16 = ['slot-r16_1','slot-r16_2','slot-r16_3','slot-r16_4',
+                'slot-r16_5','slot-r16_6','slot-r16_7','slot-r16_8'].map(get);
+  const qf  = ['slot-qf1','slot-qf2','slot-qf3','slot-qf4'].map(get);
+  const f   = ['slot-finalist1','slot-finalist2'].map(get);
+  const ch  = get('slot-champion');
+
+  if (r16.some(e => !e) || qf.some(e => !e) || f.some(e => !e) || !ch) return;
+
+  const paths = [];
+
+  // Piirrä yhden parin yhdistys: srcA + srcB → dst
+  // junctionX = missä X:llä pystyviiva piirretään
+  function connectPair(srcA, srcB, dst, junctionX) {
+    const ay = midY(srcA), by = midY(srcB), dy = midY(dst);
+    const ax = rightX(srcA), bx = rightX(srcB), dx = leftX(dst);
+
+    // Vaakaviivat molemmista lähteistä junctionX:ään
+    paths.push(`M ${ax} ${ay} H ${junctionX}`);
+    paths.push(`M ${bx} ${by} H ${junctionX}`);
+    // Pystyviiva junctionX:llä srcA:sta srcB:hen
+    const minY = Math.min(ay, by), maxY = Math.max(ay, by);
+    if (minY < maxY) paths.push(`M ${junctionX} ${minY} V ${maxY}`);
+    // Vaakaviiva junctionX:ltä kohteen korkeudella kohteeseen
+    paths.push(`M ${junctionX} ${dy} H ${dx}`);
+  }
+
+  // Laske junction X:t kullekin tasolle:
+  // R16→QF: puolivälissä R16:n oikean reunan ja QF:n vasemman reunan välillä
+  const r16_qf_jx = (rightX(r16[0]) + leftX(qf[0])) / 2;
+  // QF→Final: puolivälissä QF:n oikean reunan ja Final:n vasemman reunan välillä
+  const qf_f_jx   = (rightX(qf[0])  + leftX(f[0]))  / 2;
+  // Final→Champion: puolivälissä
+  const f_ch_jx   = (rightX(f[0])   + leftX(ch))     / 2;
+
+  // R16 pareittain → QF
+  connectPair(r16[0], r16[1], qf[0], r16_qf_jx);
+  connectPair(r16[2], r16[3], qf[1], r16_qf_jx);
+  connectPair(r16[4], r16[5], qf[2], r16_qf_jx);
+  connectPair(r16[6], r16[7], qf[3], r16_qf_jx);
+
+  // QF pareittain → Finalistit
+  connectPair(qf[0], qf[1], f[0], qf_f_jx);
+  connectPair(qf[2], qf[3], f[1], qf_f_jx);
+
+  // Finalistit → Mestari
+  connectPair(f[0], f[1], ch, f_ch_jx);
+
+  svg.innerHTML = paths.map(d => `<path d="${d}" />`).join('');
+}
+
+function renderAdminBracket() {
+  const tree = document.getElementById('admin-bracket-tree');
+  if (!tree) return;
+  tree.className = 'bracket-tree';
+  tree.innerHTML = `
+    <svg class="bracket-connectors" id="admin-bracket-connectors"></svg>
+    <div class="bracket-col r16">
+      <div class="bracket-col-title">8 parasta</div>
+      ${bracketSlotHtml('r16_1', 'Top8 1', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_2', 'Top8 2', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_3', 'Top8 3', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_4', 'Top8 4', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_5', 'Top8 5', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_6', 'Top8 6', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_7', 'Top8 7', 'r16', actualBracket, false)}
+      ${bracketSlotHtml('r16_8', 'Top8 8', 'r16', actualBracket, false)}
+    </div>
+    <div class="bracket-col qf">
+      <div class="bracket-col-title">Puolivälierävoittajat</div>
+      ${bracketSlotHtml('qf1', 'QF 1', 'qf', actualBracket, false)}
+      ${bracketSlotHtml('qf2', 'QF 2', 'qf', actualBracket, false)}
+      ${bracketSlotHtml('qf3', 'QF 3', 'qf', actualBracket, false)}
+      ${bracketSlotHtml('qf4', 'QF 4', 'qf', actualBracket, false)}
+    </div>
+    <div class="bracket-col">
+      <div class="bracket-col-title">Finalistit</div>
+      ${bracketSlotHtml('finalist1', 'Finalisti 1', 'finalist', actualBracket, false)}
+      ${bracketSlotHtml('finalist2', 'Finalisti 2', 'finalist', actualBracket, false)}
+    </div>
+    <div class="bracket-col">
+      <div class="bracket-col-title">Mestari</div>
+      ${bracketSlotHtml('champion', '🏆 Mestari', 'champion', actualBracket, false)}
+    </div>
+  `;
+  requestAnimationFrame(() => drawBracketConnectors('admin-bracket-tree', 'admin-bracket-connectors', 'admin-'));
+}
+
+/* ── Joukkuevalitsin ── */
+
+let teamPickerIsAdmin = false;
+
+function openTeamPicker(slotKey, isAdmin) {
+  isAdmin = !!isAdmin;
+  if (!isAdmin && bracketLocked) return;
+  teamPickerTarget = slotKey;
+  teamPickerIsAdmin = isAdmin;
+
+  const titles = {
+    qf1: 'Puolivälierä 1 — voittaja', qf2: 'Puolivälierä 2 — voittaja',
+    qf3: 'Puolivälierä 3 — voittaja', qf4: 'Puolivälierä 4 — voittaja',
+    finalist1: 'Finalisti 1', finalist2: 'Finalisti 2',
+    champion: '🏆 Mestari',
+  };
+  document.getElementById('team-picker-title').textContent = titles[slotKey] || 'Valitse joukkue';
+  document.getElementById('team-picker-search').value = '';
+
+  renderTeamPickerList('');
+  document.getElementById('team-picker-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('team-picker-search').focus(), 50);
+}
+
+function closeTeamPicker(e) {
+  if (e && e.target !== document.getElementById('team-picker-overlay')) return;
+  document.getElementById('team-picker-overlay').classList.remove('open');
+  teamPickerTarget = null;
+}
+
+function availableTeamsFor(slotKey, target) {
+  target = target || (teamPickerIsAdmin ? actualBracket : bracket);
+  const R16_KEYS = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8'];
+  const QF_KEYS  = ['qf1','qf2','qf3','qf4'];
+
+  // R16: kaikki 48, ei muissa R16-sloteissa valittuja
+  if (R16_KEYS.includes(slotKey)) {
+    const others = R16_KEYS.filter(k => k !== slotKey).map(k => target[k]);
+    return ALL_TEAMS.filter(t => !others.includes(t));
+  }
+  // QF: vain R16:ssa valituista, ei muissa QF-sloteissa valittuja
+  if (QF_KEYS.includes(slotKey)) {
+    const r16Teams = R16_KEYS.map(k => target[k]).filter(Boolean);
+    const others   = QF_KEYS.filter(k => k !== slotKey).map(k => target[k]);
+    return r16Teams.filter(t => !others.includes(t));
+  }
+  // Finalistit: vain QF-voittajista
+  if (['finalist1','finalist2'].includes(slotKey)) {
+    const qfTeams = QF_KEYS.map(k => target[k]).filter(Boolean);
+    const other = slotKey === 'finalist1' ? target.finalist2 : target.finalist1;
+    return qfTeams.filter(t => t !== other);
+  }
+  // Mestari: vain finalisteista
+  if (slotKey === 'champion') {
+    return [target.finalist1, target.finalist2].filter(Boolean);
+  }
+  return [];
+}
+
+function renderTeamPickerList(filter) {
+  const list = document.getElementById('team-picker-list');
+  const available = availableTeamsFor(teamPickerTarget);
+  const q = filter.toLowerCase();
+
+  if (available.length === 0) {
+    let msg = 'Ei vaihtoehtoja.';
+    if (['finalist1','finalist2'].includes(teamPickerTarget)) msg = 'Valitse ensin puolivälierävoittajat.';
+    if (teamPickerTarget === 'champion') msg = 'Valitse ensin finalistit.';
+    list.innerHTML = `<div class="empty-state" style="padding:1.5rem">${msg}</div>`;
+    return;
+  }
+
+  const filtered = available.filter(t => !q || fi(t).toLowerCase().includes(q) || t.toLowerCase().includes(q));
+
+  list.innerHTML = filtered.map(team => `
+    <div class="team-picker-item" onclick="pickTeam('${team}')">
+      <span class="flag">${flag(team)}</span>
+      <span>${fi(team)}</span>
+    </div>
+  `).join('') || `<div class="empty-state" style="padding:1.5rem">Ei tuloksia.</div>`;
+}
+
+function filterTeamPicker() {
+  renderTeamPickerList(document.getElementById('team-picker-search').value);
+}
+
+function pickTeam(team) {
+  if (!teamPickerTarget) return;
+  if (teamPickerIsAdmin) {
+    actualBracket[teamPickerTarget] = team;
+    cleanupBracketDependencies(actualBracket);
+    closeTeamPicker();
+    renderAdminBracket();
+  } else {
+    bracket[teamPickerTarget] = team;
+    cleanupBracketDependencies(bracket);
+    closeTeamPicker();
+    renderBracket();
+  }
+}
+
+/* ══════════════════════════════════════════
    KÄYNNISTYS
 ══════════════════════════════════════════ */
 
@@ -1421,17 +1987,21 @@ async function init() {
   document.getElementById('lb-body').innerHTML = '<div class="empty-state">Ladataan…</div>';
   await loadResults();
   await loadAllPredictions();
+  await loadAllBrackets();
+  await loadBracket();
+  await loadActualBracket();
   renderMatches();
   renderLeaderboard();
   setInterval(async () => {
     await loadResults();
     await loadAllPredictions();
+    await loadAllBrackets();
     renderMatches();
     renderLeaderboard();
   }, 60_000);
   // Sulje profiili Escape-näppäimellä
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeProfile();
+    if (e.key === 'Escape') { closeProfile(); closeTeamPicker(); }
   });
 }
 
@@ -1441,7 +2011,7 @@ init();
    PYYHKÄISYNAVIGOINTI
 ══════════════════════════════════════════ */
 (function () {
-  const TABS = ['picks', 'leaderboard', 'chart', 'admin'];
+  const TABS = ['picks', 'bracket', 'leaderboard', 'chart', 'admin'];
   let startX = 0, startY = 0, locked = false;
 
   document.addEventListener('touchstart', e => {

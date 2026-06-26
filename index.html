@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Antonio:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style-staff.css" />
+  <link rel="stylesheet" href="style-staff.css?v=10" />
 </head>
 <body>
 
@@ -18,11 +18,12 @@
       <div class="logo-text">
         <span class="logo-top">P2014/2 Taustat</span>
         <span class="logo-main">MM 2026 Tulosveikkaus</span>
-        <span class="logo-sub">Valmentajat & taustahenkilöt</span>
+        <span class="logo-sub">Valmentajat &amp; taustahenkilöt</span>
       </div>
     </div>
     <nav id="main-nav">
       <button class="nav-btn active" onclick="showTab('picks',this)">Veikkaukseni</button>
+      <button class="nav-btn"        onclick="showTab('bracket',this)">Mestaruus</button>
       <button class="nav-btn"        onclick="showTab('leaderboard',this)">Tulostaulukko</button>
       <button class="nav-btn"        onclick="showTab('chart',this)">Kaavio</button>
       <button class="nav-btn"        onclick="showTab('admin',this)">Admin</button>
@@ -34,6 +35,7 @@
   <!-- Mobiilivalikko (portrait) -->
   <div id="mobile-menu" class="mobile-menu">
     <button class="mobile-nav-btn active" onclick="showTab('picks',this);closeMenu()">Veikkaukseni</button>
+    <button class="mobile-nav-btn"        onclick="showTab('bracket',this);closeMenu()">Mestaruus</button>
     <button class="mobile-nav-btn"        onclick="showTab('leaderboard',this);closeMenu()">Tulostaulukko</button>
     <button class="mobile-nav-btn"        onclick="showTab('chart',this);closeMenu()">Kaavio</button>
     <button class="mobile-nav-btn"        onclick="showTab('admin',this);closeMenu()">Admin</button>
@@ -70,6 +72,33 @@
     <div id="unsaved-banner" class="unsaved-banner" style="display:none"></div>
     <div id="streak-banner" class="streak-banner" style="display:none"></div>
     <div id="matches-container"></div>
+  </div>
+
+  <!-- Mestaruusveikkaus (Bracket) -->
+  <div id="tab-bracket" class="section">
+    <div class="bracket-wrap">
+      <h2 class="chart-title">🏆 Mestaruusveikkaus</h2>
+      <p class="chart-sub" id="bracket-sub">Valitse 8 joukkuetta jotka pääsevät 8 parhaan joukkoon, niistä 4 puolivälierävoittajaa, 2 finalistia ja 1 mestari. Lukittuu kun 32 parhaan kierros alkaa.</p>
+
+      <div id="bracket-locked-banner" class="bracket-locked-banner" style="display:none">
+        🔒 Mestaruusveikkaus on lukittu — jatkopelit ovat alkaneet.
+      </div>
+
+      <div id="bracket-unsaved-banner" class="unsaved-banner" style="display:none">
+        ⚠️ Mestaruusveikkauksessa on tallentamattomia muutoksia — muista tallentaa!
+      </div>
+
+      <div class="bracket-tree" id="bracket-tree"></div>
+
+      <div class="bracket-points-info">
+        <span>🎯 8 parhaan joukkoon oikein: 1p / kpl</span>
+        <span>🏅 Puolivälierävoittaja oikein: 2p / kpl</span>
+        <span>🥈 Finalisti oikein: 5p / kpl</span>
+        <span>🏆 Mestari oikein: 10p</span>
+      </div>
+
+      <button id="bracket-save-btn" class="btn" onclick="saveBracket()" style="margin-top:1.25rem">Tallenna mestaruusveikkaus</button>
+    </div>
   </div>
 
   <!-- Tulostaulukko -->
@@ -136,14 +165,37 @@
         <p>Syötä otteluiden viralliset tulokset. Pisteet päivittyvät välittömästi.</p>
         <button class="btn-ghost" onclick="lockAdmin()">Lukitse admin</button>
       </div>
+
+      <!-- Mestaruusveikkauksen oikeat tulokset -->
+      <div class="admin-bracket-section">
+        <h3 class="admin-bracket-title">🏆 Mestaruusveikkauksen oikeat tulokset</h3>
+        <p class="chart-sub">Syötä puolivälierävoittajat, finalistit ja mestari sitä mukaa kun ne selviävät. Pisteet lasketaan automaattisesti kaikille pelaajille.</p>
+        <div class="bracket-tree" id="admin-bracket-tree"></div>
+        <button class="btn" onclick="saveActualBracket()" style="margin-top:1rem">Tallenna oikeat tulokset</button>
+      </div>
+
       <div id="admin-container"></div>
     </div>
   </div>
 
 </main>
 
+<!-- Joukkuevalitsin (Bracket) -->
+<div id="team-picker-overlay" onclick="closeTeamPicker(event)">
+  <div class="team-picker-modal" onclick="event.stopPropagation()">
+    <div class="team-picker-header">
+      <h3 id="team-picker-title">Valitse joukkue</h3>
+      <button class="profile-close" style="position:static" onclick="closeTeamPicker()">✕</button>
+    </div>
+    <div class="team-picker-search">
+      <input type="text" id="team-picker-search" placeholder="Hae joukkuetta…" oninput="filterTeamPicker()" autocomplete="off">
+    </div>
+    <div class="team-picker-list" id="team-picker-list"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app-staff.js"></script>
+<script src="app-staff.js?v=11"></script>
 </body>
 </html>
