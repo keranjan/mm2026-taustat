@@ -418,7 +418,7 @@ function topPredictions(id) {
     .map(([score]) => `<span class="top-pred-chip">${score}</span>`)
     .join('');
 
-  return `<div class="top-predictions"><span class="top-pred-label">Suosituimmat tulokset</span>${top3}</div>`;
+  return `<div class="top-predictions"><span class="top-pred-label">Suosituimmat tulosveikkaukset</span>${top3}</div>`;
 }
 
 function matchCardHtml(m) {
@@ -464,8 +464,8 @@ function matchCardHtml(m) {
       <span>${ROUND_NAMES[m.g] ? `${fmtDate(m.t)} &middot; ${fmtTime(m.t)}` : `Lohko ${m.g} &middot; ${fmtTime(m.t)}`}</span>
       <span>${locked ? '&#128274; lukittu' : savedTag}</span>
     </div>
-    ${locked ? topPredictions(m.id) : ''}
     ${resultBadge(m.id)}
+    ${locked ? topPredictions(m.id) : ''}
   </div>`;
 }
 
