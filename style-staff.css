@@ -1048,3 +1048,28 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
   background: linear-gradient(90deg, var(--gold), var(--gold-bright));
 }
 .team-goal.level-up .team-goal-title { color: var(--gold-bright); }
+
+/* ── Top 3 suosituimmat veikkaukset ── */
+.top-predictions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+.top-pred-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  width: 100%;
+  margin-bottom: 1px;
+}
+.top-pred-chip {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 2px 9px;
+}

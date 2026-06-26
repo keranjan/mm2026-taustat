@@ -400,6 +400,27 @@ function isSavedPred(id) {
   return saved.h === local.h && saved.a === local.a;
 }
 
+function topPredictions(id) {
+  const all = Object.values(users)
+    .map(u => u.predictions[id])
+    .filter(p => p && p.h !== null && p.a !== null);
+  if (all.length === 0) return '';
+
+  const counts = {};
+  all.forEach(p => {
+    const key = `${p.h}–${p.a}`;
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  const top3 = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([score]) => `<span class="top-pred-chip">${score}</span>`)
+    .join('');
+
+  return `<div class="top-predictions"><span class="top-pred-label">Suosituimmat tulokset</span>${top3}</div>`;
+}
+
 function matchCardHtml(m) {
   const p      = getPred(m.id);
   const locked = isLocked(m);
@@ -443,6 +464,7 @@ function matchCardHtml(m) {
       <span>${ROUND_NAMES[m.g] ? `${fmtDate(m.t)} &middot; ${fmtTime(m.t)}` : `Lohko ${m.g} &middot; ${fmtTime(m.t)}`}</span>
       <span>${locked ? '&#128274; lukittu' : savedTag}</span>
     </div>
+    ${locked ? topPredictions(m.id) : ''}
     ${resultBadge(m.id)}
   </div>`;
 }
@@ -624,6 +646,47 @@ function calcUser(preds) {
   return { total, exact, diff, win, miss };
 }
 
+const TEAM_LEVELS = [
+  { level: 1, name: 'Taso 1 — Alkuun!',         min: 0,    max: 500  },
+  { level: 2, name: 'Taso 2 — Vauhti kasvaa!',  min: 500,  max: 1200 },
+  { level: 3, name: 'Taso 3 — Hyvä meininki!',  min: 1200, max: 2000 },
+  { level: 4, name: 'Taso 4 — Huipputiimi!',    min: 2000, max: 3200 },
+  { level: 5, name: 'Taso 5 — MESTARIT! 🏆',   min: 3200, max: null  },
+];
+
+function renderTeamGoal() {
+  const el = document.getElementById('team-goal');
+  if (!el) return;
+
+  // Laske kaikkien pelaajien yhteispisteet
+  const total = Object.values(users).reduce((sum, data) => {
+    const base = calcUser(data.predictions || {});
+    return sum + base.total + calcBracketPts(data.bracket);
+  }, 0);
+
+  // Selvitä nykyinen taso
+  let current = TEAM_LEVELS[TEAM_LEVELS.length - 1];
+  for (const lvl of TEAM_LEVELS) {
+    if (lvl.max === null || total < lvl.max) { current = lvl; break; }
+  }
+
+  const isMax = current.max === null;
+  const pct   = isMax ? 100 : Math.min(100, Math.round((total - current.min) / (current.max - current.min) * 100));
+  const remaining = isMax ? 0 : current.max - total;
+
+  // Päivitä elementit
+  document.getElementById('team-goal-level').textContent = current.name;
+  document.getElementById('team-goal-pts').textContent   = `${total} p`;
+  document.getElementById('team-goal-bar').style.width   = pct + '%';
+  document.getElementById('team-goal-pct').textContent   = pct + '%';
+  document.getElementById('team-goal-remaining').textContent = isMax
+    ? '🎉 Maksimitaso saavutettu!'
+    : `${remaining} pistettä seuraavaan tasoon`;
+
+  // Kultainen korostus jos maksimitasolla
+  el.classList.toggle('level-up', isMax);
+}
+
 function renderLeaderboard() {
   const ranked = Object.entries(users)
     .map(([name, data]) => {
@@ -660,6 +723,7 @@ function renderLeaderboard() {
       }).join('')
     : '<div class="empty-state">Ei vielä pelaajia – tallenna veikkauksesi näkyäksesi tässä.</div>';
   document.getElementById('lb-body').innerHTML = html;
+  renderTeamGoal();
 }
 
 /* ══════════════════════════════════════════
