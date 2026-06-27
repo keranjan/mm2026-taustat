@@ -202,6 +202,7 @@ const MATCHES = [
 ══════════════════════════════════════════ */
 let predictions = {};
 let results     = {};
+let liveScores  = {}; // IN_PLAY-tilanteet — ei tallenneta Supabaseen, ei lukitse kortteja
 let users       = {};
 let currentUser = localStorage.getItem('wc26s_me') || '';
 let adminOpen   = false;
@@ -264,7 +265,7 @@ async function loadResults() {
 // Joukkuenimien kartoitus football-data.org → sovelluksen nimet
 const FD_TEAM_MAP = {
   'Mexico': 'Mexico', 'South Africa': 'South Africa', 'South Korea': 'South Korea',
-  'Czechia': 'Czechia', 'Czech Republic': 'Czechia', 'Canada': 'Canada',
+  'Czech Republic': 'Czechia', 'Czechia': 'Czechia', 'Canada': 'Canada',
   'Bosnia and Herzegovina': 'Bosnia', 'Bosnia-Herzegovina': 'Bosnia',
   'USA': 'USA', 'United States': 'USA', 'Paraguay': 'Paraguay',
   'Qatar': 'Qatar', 'Switzerland': 'Switzerland', 'Brazil': 'Brazil',
@@ -279,16 +280,15 @@ const FD_TEAM_MAP = {
   'Senegal': 'Senegal', 'Iraq': 'Iraq', 'Norway': 'Norway',
   'Argentina': 'Argentina', 'Algeria': 'Algeria', 'Austria': 'Austria',
   'Jordan': 'Jordan', 'Portugal': 'Portugal', 'DR Congo': 'DR Congo',
-  'Congo DR': 'DR Congo', 'England': 'England', 'Croatia': 'Croatia',
+  'Congo DR': 'DR Congo', 'Democratic Republic of Congo': 'DR Congo',
+  'England': 'England', 'Croatia': 'Croatia',
   'Ghana': 'Ghana', 'Panama': 'Panama', 'Uzbekistan': 'Uzbekistan',
   'Colombia': 'Colombia',
 };
 
 async function fetchLiveResults() {
   try {
-    // Kutsutaan Supabase Edge Functionia proxyna CORS-ongelman välttämiseksi
     const proxyUrl = `${SUPABASE_URL}/functions/v1/football-results?path=/competitions/${FD_COMPETITION}/matches&params=season=${FD_SEASON}%26status=IN_PLAY,PAUSED,FINISHED`;
-
     const res = await fetch(proxyUrl, {
       headers: {
         'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -299,11 +299,13 @@ async function fetchLiveResults() {
     const data = await res.json();
     const matches = data.matches || [];
 
+    // Nollataan live-tilanteet ennen päivitystä
+    liveScores = {};
+
     for (const fdMatch of matches) {
       const score = fdMatch.score;
-      if (!score || score.fullTime.home === null) continue;
+      if (!score) continue;
 
-      // Tunnista ottelu sovelluksen MATCHES-listasta joukkuenimien perusteella
       const fdHome = FD_TEAM_MAP[fdMatch.homeTeam.name] || fdMatch.homeTeam.name;
       const fdAway = FD_TEAM_MAP[fdMatch.awayTeam.name] || fdMatch.awayTeam.name;
 
@@ -313,32 +315,41 @@ async function fetchLiveResults() {
       );
       if (!appMatch) continue;
 
-      // Käytä fullTime jos peli päättynyt, muuten currentScore
       const isFinished = fdMatch.status === 'FINISHED';
-      const homeGoals = isFinished ? score.fullTime.home : (score.currentScore?.home ?? score.fullTime.home);
-      const awayGoals = isFinished ? score.fullTime.away : (score.currentScore?.away ?? score.fullTime.away);
+      const isInPlay   = ['IN_PLAY', 'PAUSED', 'HALF_TIME'].includes(fdMatch.status);
 
-      if (homeGoals === null || awayGoals === null) continue;
+      if (isFinished) {
+        // Päättynyt — käytetään fullTime-tulosta
+        const homeGoals = score.fullTime.home;
+        const awayGoals = score.fullTime.away;
+        if (homeGoals === null || awayGoals === null) continue;
 
-      // Normalisoi jos joukkueet ovat käänteisessä järjestyksessä
-      const h = appMatch.h === fdHome ? homeGoals : awayGoals;
-      const a = appMatch.h === fdHome ? awayGoals : homeGoals;
+        const h = appMatch.h === fdHome ? homeGoals : awayGoals;
+        const a = appMatch.h === fdHome ? awayGoals : homeGoals;
 
-      // Tallenna vain päättyneet pelit Supabaseen (live-tilassa ei tallenneta)
-      if (isFinished && (!results[appMatch.id] || results[appMatch.id].h !== h || results[appMatch.id].a !== a)) {
-        await api('results?on_conflict=match_id', {
-          method: 'POST',
-          prefer: 'resolution=merge-duplicates',
-          body: JSON.stringify({ match_id: appMatch.id, home_goals: h, away_goals: a }),
-        });
+        // Tallennetaan Supabaseen
+        if (!results[appMatch.id] || results[appMatch.id].h !== h || results[appMatch.id].a !== a) {
+          await api('results?on_conflict=match_id', {
+            method: 'POST',
+            prefer: 'resolution=merge-duplicates',
+            body: JSON.stringify({ match_id: appMatch.id, home_goals: h, away_goals: a }),
+          });
+          results[appMatch.id] = { h, a };
+        }
+
+      } else if (isInPlay) {
+        // Käynnissä — tallennetaan vain liveScores-objektiin, EI Supabaseen eikä results-objektiin
+        const homeGoals = score.currentScore?.home ?? null;
+        const awayGoals = score.currentScore?.away ?? null;
+        if (homeGoals === null || awayGoals === null) continue;
+
+        const h = appMatch.h === fdHome ? homeGoals : awayGoals;
+        const a = appMatch.h === fdHome ? awayGoals : homeGoals;
+        liveScores[appMatch.id] = { h, a };
       }
-
-      // Päivitä paikallinen tila aina (myös live-tilassa)
-      results[appMatch.id] = { h, a };
     }
   } catch (e) { console.error('fetchLiveResults:', e); }
 }
-
 
 
 let savedPredictions = {}; // kopio tietokannasta, ei muutu ennen seuraavaa latausta
@@ -527,10 +538,10 @@ function matchCardHtml(m) {
     ? '<span class="pred-saved-tag">✓ tallennettu</span>'
     : (filled ? '<span class="pred-unsaved-tag">● tallentamatta</span>' : '');
 
-  const liveScore = live && results[m.id]
-    ? `<span class="live-score">${results[m.id].h}–${results[m.id].a}</span>` : '';
+  const liveScore = live && liveScores[m.id]
+    ? `${liveScores[m.id].h}–${liveScores[m.id].a}` : '';
   const metaRight = live
-    ? `<span class="live-badge">🔴 LIVE${results[m.id] ? ' ' + results[m.id].h + '–' + results[m.id].a : ''}</span>`
+    ? `<span class="live-badge">🔴 LIVE${liveScore ? ' ' + liveScore : ''}</span>`
     : locked ? '&#128274; lukittu' : savedTag;
 
   return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
