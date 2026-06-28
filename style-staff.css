@@ -187,18 +187,19 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
   border-radius: var(--radius); padding: 0.8rem 1rem; margin-bottom: 7px;
   transition: border-color 0.2s; position: relative; overflow: hidden;
 }
-.match-card.knockout {
+.match-card.knockout:not(.r32) {
   opacity: 0.5;
   border-color: rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.02);
   filter: grayscale(0.6);
 }
-.match-card.knockout .team-name,
-.match-card.knockout .score-display,
-.match-card.knockout .flag { color: var(--text-muted); }
-.match-card.knockout .match-meta { font-style: italic; }
+.match-card.knockout:not(.r32) .team-name,
+.match-card.knockout:not(.r32) .score-display,
+.match-card.knockout:not(.r32) .flag { color: var(--text-muted); }
+.match-card.knockout:not(.r32) .match-meta { font-style: italic; }
 /* Lukittu avoin ottelu (aika mennyt tai tulos syötetty) */
-.match-card.locked:not(.knockout) {
+.match-card.locked:not(.knockout) ,
+.match-card.locked.r32 {
   opacity: 0.55;
   background: rgba(0,0,0,0.18);
   border-color: rgba(255,255,255,0.06);

@@ -155,22 +155,22 @@ const MATCHES = [
   {id:'m72',g:'J',h:'Jordan',       a:'Argentina',    t:'2026-06-28T02:00Z'},
 
   // ── 32 PARHAAN KIERROS (28.6.–3.7.) ──────────────────────
-  {id:'r01',g:'R32',h:'TBD',a:'TBD',t:'2026-06-28T19:00Z'},  // Los Angeles
-  {id:'r02',g:'R32',h:'TBD',a:'TBD',t:'2026-06-29T17:00Z'},  // Houston
-  {id:'r03',g:'R32',h:'TBD',a:'TBD',t:'2026-06-29T20:30Z'},  // Boston
-  {id:'r04',g:'R32',h:'TBD',a:'TBD',t:'2026-06-30T01:00Z'},  // Monterrey
-  {id:'r05',g:'R32',h:'TBD',a:'TBD',t:'2026-06-30T17:00Z'},  // Dallas
-  {id:'r06',g:'R32',h:'TBD',a:'TBD',t:'2026-06-30T21:00Z'},  // New York/NJ
-  {id:'r07',g:'R32',h:'TBD',a:'TBD',t:'2026-07-01T01:00Z'},  // Mexico City
-  {id:'r08',g:'R32',h:'TBD',a:'TBD',t:'2026-07-01T16:00Z'},  // Atlanta
-  {id:'r09',g:'R32',h:'TBD',a:'TBD',t:'2026-07-01T20:00Z'},  // Seattle
-  {id:'r10',g:'R32',h:'TBD',a:'TBD',t:'2026-07-02T00:00Z'},  // San Francisco
-  {id:'r11',g:'R32',h:'TBD',a:'TBD',t:'2026-07-02T19:00Z'},  // Los Angeles
-  {id:'r12',g:'R32',h:'TBD',a:'TBD',t:'2026-07-02T23:00Z'},  // Toronto
-  {id:'r13',g:'R32',h:'TBD',a:'TBD',t:'2026-07-03T03:00Z'},  // Vancouver
-  {id:'r14',g:'R32',h:'TBD',a:'TBD',t:'2026-07-03T18:00Z'},  // Dallas
-  {id:'r15',g:'R32',h:'TBD',a:'TBD',t:'2026-07-03T22:00Z'},  // Miami
-  {id:'r16',g:'R32',h:'TBD',a:'TBD',t:'2026-07-04T01:30Z'},  // Kansas City
+  {id:'r01',g:'R32',h:'South Africa', a:'Canada',      t:'2026-06-28T19:00Z'},  // Los Angeles
+  {id:'r02',g:'R32',h:'Brazil',       a:'Japan',       t:'2026-06-29T17:00Z'},  // Houston
+  {id:'r03',g:'R32',h:'Germany',      a:'Paraguay',    t:'2026-06-29T20:30Z'},  // Boston
+  {id:'r04',g:'R32',h:'Netherlands',  a:'Morocco',     t:'2026-06-30T01:00Z'},  // Monterrey
+  {id:'r05',g:'R32',h:'Ivory Coast',  a:'Norway',      t:'2026-06-30T17:00Z'},  // Dallas
+  {id:'r06',g:'R32',h:'France',       a:'Sweden',      t:'2026-06-30T21:00Z'},  // New York/NJ
+  {id:'r07',g:'R32',h:'Mexico',       a:'Ecuador',     t:'2026-07-01T01:00Z'},  // Mexico City
+  {id:'r08',g:'R32',h:'England',      a:'DR Congo',    t:'2026-07-01T16:00Z'},  // Atlanta
+  {id:'r09',g:'R32',h:'Belgium',      a:'Senegal',     t:'2026-07-01T20:00Z'},  // Seattle
+  {id:'r10',g:'R32',h:'USA',          a:'Bosnia',      t:'2026-07-02T00:00Z'},  // San Francisco
+  {id:'r11',g:'R32',h:'Spain',       a:'Austria',     t:'2026-07-02T19:00Z'},  // Los Angeles
+  {id:'r12',g:'R32',h:'Portugal',    a:'Croatia',     t:'2026-07-02T23:00Z'},  // Toronto
+  {id:'r13',g:'R32',h:'Switzerland', a:'Algeria',     t:'2026-07-03T03:00Z'},  // Vancouver
+  {id:'r14',g:'R32',h:'Australia',   a:'Egypt',       t:'2026-07-03T18:00Z'},  // Dallas
+  {id:'r15',g:'R32',h:'Argentina',   a:'Cape Verde',  t:'2026-07-03T22:00Z'},  // Miami
+  {id:'r16',g:'R32',h:'Colombia',    a:'Ghana',       t:'2026-07-04T01:30Z'},  // Kansas City
 
   // ── 16 PARHAAN KIERROS (4.–7.7.) ─────────────────────────
   {id:'s01',g:'R16',h:'TBD',a:'TBD',t:'2026-07-04T17:00Z'},  // Houston
@@ -211,7 +211,7 @@ let adminOpen   = false;
    APUFUNKTIOT
 ══════════════════════════════════════════ */
 
-function isLocked(m) { return !!ROUND_NAMES[m.g] || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
+function isLocked(m)   { return (m.g !== 'R32' && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
 function isLive(m) {
   const start = new Date(m.t).getTime();
@@ -432,7 +432,7 @@ function stepPred(id, side, delta) {
 function updateUnsavedBanner() {
   const unsavedBanner = document.getElementById('unsaved-banner');
   if (!unsavedBanner || !currentUser) { if (unsavedBanner) unsavedBanner.style.display = 'none'; return; }
-  const openMatches = MATCHES.filter(m => !isLocked(m) && !isKnockout(m));
+  const openMatches = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
   const unsaved = openMatches.filter(m => {
     const local = predictions[m.id];
     if (!local || local.h === null || local.a === null) return false;
@@ -449,7 +449,7 @@ function updateUnsavedBanner() {
 }
 
 function updateProgress() {
-  const open = MATCHES.filter(m => !isLocked(m) && !isKnockout(m));
+  const open = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
   const done = open.filter(m => predDone(m.id)).length;
   const pct  = open.length ? Math.round(done / open.length * 100) : 100;
   document.getElementById('progress-fill').style.width  = pct + '%';
@@ -532,8 +532,9 @@ function matchCardHtml(m) {
   const aDisp  = av !== null ? av : '–';
   const hEmpty = hv === null ? ' empty' : '';
   const aEmpty = av === null ? ' empty' : '';
-  const saved  = !locked && !isKnockout(m) && isSavedPred(m.id);
-  const filled = !locked && !isKnockout(m) && hv !== null && av !== null;
+  const canPred = !locked && (m.g === 'R32' || !isKnockout(m));
+  const saved  = canPred && isSavedPred(m.id);
+  const filled = canPred && hv !== null && av !== null;
   const savedTag = saved
     ? '<span class="pred-saved-tag">✓ tallennettu</span>'
     : (filled ? '<span class="pred-unsaved-tag">● tallentamatta</span>' : '');
@@ -544,7 +545,7 @@ function matchCardHtml(m) {
     ? `<span class="live-badge">🔴 LIVE${liveScore ? ' ' + liveScore : ''}</span>`
     : locked ? '&#128274; lukittu' : savedTag;
 
-  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
+  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${m.g === 'R32' ? 'r32' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
     <div class="match-row">
       <div class="team-block">
         <span class="flag">${flag(m.h)}</span>
@@ -650,7 +651,7 @@ function refreshCard(id) {
 async function savePredictions() {
   const name = document.getElementById('username').value.trim();
   if (!name) { toast('Kirjoita nimesi ensin', 'error'); return; }
-  const open = MATCHES.filter(m => !isLocked(m) && !isKnockout(m));
+  const open = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
   if (!open.some(m => predDone(m.id))) { toast('Syötä vähintään yksi tulos ensin', 'error'); return; }
 
   const btn = document.getElementById('save-btn');
@@ -670,7 +671,7 @@ async function savePredictions() {
   });
   const safeRows = rows.filter(r => {
     const m = MATCHES.find(m => m.id === r.match_id);
-    return m && Date.now() < new Date(m.t).getTime() && !results[m.id] && !ROUND_NAMES[m.g];
+    return m && Date.now() < new Date(m.t).getTime() && !results[m.id] && (m.g === 'R32' || !ROUND_NAMES[m.g]);
   });
 
   if (safeRows.length === 0) {
