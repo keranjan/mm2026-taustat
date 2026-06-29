@@ -198,13 +198,21 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
 .match-card.knockout:not(.r32) .flag { color: var(--text-muted); }
 .match-card.knockout:not(.r32) .match-meta { font-style: italic; }
 /* Lukittu avoin ottelu (aika mennyt tai tulos syötetty) */
-.match-card.locked:not(.knockout) ,
-.match-card.locked.r32 {
+.match-card.locked:not(.knockout):not(.live),
+.match-card.locked.r32:not(.live) {
   opacity: 0.55;
   background: rgba(0,0,0,0.18);
   border-color: rgba(255,255,255,0.06);
   border-left: 3px solid rgba(255,255,255,0.12);
   border-radius: 0 var(--radius) var(--radius) 0;
+}
+/* Live-ottelu — ylikirjoittaa lukitus-tyylit */
+.match-card.live {
+  border-color: rgba(220,50,50,0.5) !important;
+  background: rgba(220,50,50,0.04) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  border-left-width: 1px !important;
 }
 /* Lukittu + pisteet — pidetään pistetyylit, mutta hieman himmeämpinä */
 .match-card.locked.pts-3,
@@ -1078,12 +1086,6 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 /* ── Live-ottelu ── */
-.match-card.live {
-  border-color: rgba(220,50,50,0.5);
-  background: rgba(220,50,50,0.04);
-  opacity: 1 !important;
-  filter: none !important;
-}
 .live-badge {
   font-size: 11px;
   font-weight: 700;
@@ -1098,4 +1100,186 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
 @keyframes livePulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.55; }
+}
+
+/* ══════════════════════════════════════════
+   TURNAUSYHTEENVETO
+══════════════════════════════════════════ */
+.summary-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.sum-nav-btn {
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sum-nav-btn:hover:not(:disabled) { background: var(--bg-card); }
+.sum-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.sum-counter { font-size: 13px; color: var(--text-muted); }
+.summary-slides { position: relative; }
+.summary-slide-wrap { display: none; }
+.summary-slide-wrap.active { display: block; animation: slideIn 0.35s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.summary-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.sum-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.sum-dot.active { background: var(--green-bright); }
+
+/* Slaidit */
+.summary-slide {
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: border-color 0.3s;
+}
+.summary-slide-icon { font-size: 48px; line-height: 1; }
+.summary-slide-title {
+  font-family: 'Antonio', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+.summary-slide-content { width: 100%; }
+.sum-stat-big {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 52px;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.sum-stat-sub { font-size: 13px; color: var(--text-muted); }
+.sum-level-badge {
+  display: inline-block;
+  background: rgba(180,140,0,0.15);
+  border: 1px solid var(--green);
+  color: var(--green-bright);
+  border-radius: 100px;
+  padding: 3px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sum-winner {
+  font-family: 'Antonio', sans-serif;
+  font-size: 32px;
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+  margin-bottom: 0.25rem;
+}
+.sum-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+.sum-mini-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.sum-mini-stat span {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  color: var(--green-bright);
+  line-height: 1;
+}
+.sum-mini-stat label { font-size: 11px; color: var(--text-muted); text-align: center; }
+.sum-podium { width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.sum-podium-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.sum-podium-row.gold   { border-color: var(--gold-bright); background: rgba(240,204,96,0.06); }
+.sum-podium-row.silver { border-color: #9aaab4; }
+.sum-podium-row.bronze { border-color: #a07040; }
+.sum-pos  { font-size: 18px; width: 28px; }
+.sum-name { flex: 1; text-align: left; font-size: 14px; font-weight: 600; }
+.sum-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--gold-bright); }
+.sum-weekly-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 0.5rem; }
+.sum-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.sum-match-name { font-size: 15px; font-weight: 600; margin-bottom: 0.5rem; }
+.sum-result-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  color: var(--green-bright);
+  line-height: 1;
+  margin: 0.25rem 0;
+}
+.sum-bracket-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.sum-champion-reveal {
+  font-family: 'Antonio', sans-serif;
+  font-size: 24px;
+  color: var(--gold-bright);
+  margin-top: 0.5rem;
+  letter-spacing: 0.04em;
+}
+.sum-rank-badge {
+  display: inline-block;
+  background: rgba(240,204,96,0.1);
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  border-radius: 100px;
+  padding: 4px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.sum-personal { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.sum-achievements {
+  font-size: 22px;
+  letter-spacing: 4px;
+  margin-top: 0.25rem;
+}
+.sum-personality-name {
+  font-family: 'Antonio', sans-serif;
+  font-size: 36px;
+  color: var(--green-bright);
+  letter-spacing: 0.05em;
 }

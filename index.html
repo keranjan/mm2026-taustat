@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Antonio:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style-staff.css?v=22" />
+  <link rel="stylesheet" href="style-staff.css?v=30" />
 </head>
 <body>
 
@@ -26,6 +26,7 @@
       <button class="nav-btn"        onclick="showTab('bracket',this)">Mestaruus</button>
       <button class="nav-btn"        onclick="showTab('leaderboard',this)">Tulostaulukko</button>
       <button class="nav-btn"        onclick="showTab('chart',this)">Kaavio</button>
+      <button class="nav-btn" id="nav-summary" style="display:none" onclick="showTab('summary',this)">🏆 Yhteenveto</button>
       <button class="nav-btn"        onclick="showTab('admin',this)">Admin</button>
     </nav>
     <button class="hamburger" id="hamburger" onclick="toggleMenu()" aria-label="Valikko">
@@ -38,6 +39,7 @@
     <button class="mobile-nav-btn"        onclick="showTab('bracket',this);closeMenu()">Mestaruus</button>
     <button class="mobile-nav-btn"        onclick="showTab('leaderboard',this);closeMenu()">Tulostaulukko</button>
     <button class="mobile-nav-btn"        onclick="showTab('chart',this);closeMenu()">Kaavio</button>
+    <button class="mobile-nav-btn" id="mobile-nav-summary" style="display:none" onclick="showTab('summary',this);closeMenu()">🏆 Yhteenveto</button>
     <button class="mobile-nav-btn"        onclick="showTab('admin',this);closeMenu()">Admin</button>
   </div>
 </header>
@@ -148,6 +150,11 @@
     </div>
   </div>
 
+  <!-- Turnausyhteenveto -->
+  <div id="tab-summary" class="section" style="display:none">
+    <div id="summary-container"></div>
+  </div>
+
   <!-- Admin -->
   <div id="tab-admin" class="section">
     <div id="admin-gate">
@@ -175,6 +182,13 @@
         <button class="btn" onclick="saveActualBracket()" style="margin-top:1rem">Tallenna oikeat tulokset</button>
       </div>
 
+      <!-- Turnausyhteenveto -->
+      <div class="admin-bracket-section" style="border-color: var(--green-bright)">
+        <h3 class="admin-bracket-title" style="color:var(--green-bright)">🎬 Turnausyhteenveto</h3>
+        <p class="chart-sub">Näytä pelaajille Spotify Wrapped -tyylinen yhteenveto koko turnauksesta. Aktivoi vasta kun turnaus on päättynyt.</p>
+        <button class="btn" id="summary-toggle-btn" onclick="toggleSummary()">Aktivoi yhteenveto</button>
+      </div>
+
       <div id="admin-container"></div>
     </div>
   </div>
@@ -197,6 +211,6 @@
 
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app-staff.js?v=26"></script>
+<script src="app-staff.js?v=30"></script>
 </body>
 </html>
