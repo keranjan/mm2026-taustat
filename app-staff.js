@@ -238,10 +238,8 @@ async function toggleSummary() {
 function isLocked(m)   { return (m.g !== 'R32' && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
 function isLive(m) {
-  const start = new Date(m.t).getTime();
-  const now   = Date.now();
-  // Live jos peli alkanut mutta alle 115 min sitten (90 + lisäaika + tauot)
-  return now >= start && now <= start + 115 * 60 * 1000 && !results[m.id];
+  // Live kun peli on alkanut mutta tulosta ei ole vielä tallennettu
+  return Date.now() >= new Date(m.t).getTime() && !results[m.id];
 }
 
 function fmtTime(iso) {
