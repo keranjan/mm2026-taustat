@@ -238,8 +238,9 @@ async function toggleSummary() {
 function isLocked(m)   { return (m.g !== 'R32' && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
 function isLive(m) {
-  // Live kun peli on alkanut mutta tulosta ei ole vielä tallennettu
-  return Date.now() >= new Date(m.t).getTime() && !results[m.id];
+  // Live kun peli on alkanut, tulosta ei ole vielä tallennettu, ja max 3h aloituksesta
+  const start = new Date(m.t).getTime();
+  return Date.now() >= start && Date.now() <= start + 3 * 60 * 60 * 1000 && !results[m.id];
 }
 
 function fmtTime(iso) {
@@ -341,23 +342,32 @@ async function fetchLiveResults() {
       const isInPlay   = ['IN_PLAY', 'PAUSED', 'HALF_TIME'].includes(fdMatch.status);
 
       if (isFinished) {
-        // Päättynyt — käytetään fullTime-tulosta
-        const homeGoals = score.fullTime.home;
-        const awayGoals = score.fullTime.away;
-        if (homeGoals === null || awayGoals === null) continue;
+        // Jos tulos on jo tallennettu (admin on syöttänyt tai aiemmin tallennettu),
+        // säilytetään se eikä ylikirjoiteta API:n datalla
+        if (results[appMatch.id]) continue;
+
+        // Jatkoaika/rangaistuspotkut: käytetään regularTime-tulosta fullTimen sijaan
+        // (veikkauspisteet lasketaan normaaliajan tuloksen perusteella)
+        const usesRegularTime = score.duration === 'EXTRA_TIME' || score.duration === 'PENALTY_SHOOTOUT';
+        const source = (usesRegularTime && score.regularTime &&
+                        score.regularTime.home !== null && score.regularTime.home !== undefined)
+          ? score.regularTime
+          : score.fullTime;
+
+        const homeGoals = source?.home;
+        const awayGoals = source?.away;
+        if (homeGoals === null || homeGoals === undefined || awayGoals === null || awayGoals === undefined) continue;
 
         const h = appMatch.h === fdHome ? homeGoals : awayGoals;
         const a = appMatch.h === fdHome ? awayGoals : homeGoals;
 
         // Tallennetaan Supabaseen
-        if (!results[appMatch.id] || results[appMatch.id].h !== h || results[appMatch.id].a !== a) {
-          await api('results?on_conflict=match_id', {
-            method: 'POST',
-            prefer: 'resolution=merge-duplicates',
-            body: JSON.stringify({ match_id: appMatch.id, home_goals: h, away_goals: a }),
-          });
-          results[appMatch.id] = { h, a };
-        }
+        await api('results?on_conflict=match_id', {
+          method: 'POST',
+          prefer: 'resolution=merge-duplicates',
+          body: JSON.stringify({ match_id: appMatch.id, home_goals: h, away_goals: a }),
+        });
+        results[appMatch.id] = { h, a };
 
       } else if (isInPlay) {
         // Käynnissä — tallennetaan vain liveScores-objektiin, EI Supabaseen eikä results-objektiin
