@@ -203,6 +203,7 @@ const MATCHES = [
 let predictions = {};
 let results     = {};
 let liveScores  = {}; // IN_PLAY-tilanteet — ei tallenneta Supabaseen, ei lukitse kortteja
+let manualResultTouch = new Set(); // match_id:t joita admin on koskenut tässä istunnossa — suojaa fetchLiveResults-ylikirjoitukselta
 let users       = {};
 let currentUser = localStorage.getItem('wc26s_me') || '';
 let adminOpen    = false;
@@ -277,11 +278,14 @@ function calcPts(ph, pa, rh, ra) {
 
 async function loadResults() {
   try {
-    const res = await api('results?select=match_id,home_goals,away_goals');
+    const res = await api('results?select=match_id,home_goals,away_goals,manual');
     if (!res.ok) return;
     const rows = await res.json();
     results = {};
-    rows.forEach(r => { results[r.match_id] = { h: r.home_goals, a: r.away_goals }; });
+    rows.forEach(r => {
+      results[r.match_id] = { h: r.home_goals, a: r.away_goals };
+      if (r.manual) manualResultTouch.add(r.match_id);
+    });
   } catch (e) { console.error('loadResults:', e); }
 }
 
@@ -342,9 +346,9 @@ async function fetchLiveResults() {
       const isInPlay   = ['IN_PLAY', 'PAUSED', 'HALF_TIME'].includes(fdMatch.status);
 
       if (isFinished) {
-        // Jos tulos on jo tallennettu (admin on syöttänyt tai aiemmin tallennettu),
-        // säilytetään se eikä ylikirjoiteta API:n datalla
-        if (results[appMatch.id]) continue;
+        // Jos tulos on jo tallennettu TAI admin on koskaan käsitellyt tätä ottelua
+        // tässä istunnossa (myös poistanut sen), säilytetään adminin päätös eikä ylikirjoiteta
+        if (results[appMatch.id] || manualResultTouch.has(appMatch.id)) continue;
 
         // Jatkoaika/rangaistuspotkut: käytetään regularTime-tulosta fullTimen sijaan
         // (veikkauspisteet lasketaan normaaliajan tuloksen perusteella)
@@ -1383,6 +1387,7 @@ function lockAdmin() {
 }
 
 async function stepResult(id, side, delta) {
+  manualResultTouch.add(id);
   if (!results[id]) results[id] = { h: null, a: null };
   const cur  = results[id][side];
   const next = cur === null ? (delta > 0 ? 0 : null) : Math.max(0, cur + delta);
@@ -1396,7 +1401,7 @@ async function stepResult(id, side, delta) {
     await api('results?on_conflict=match_id', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates',
-      body:   JSON.stringify({ match_id: id, home_goals: h, away_goals: a }),
+      body:   JSON.stringify({ match_id: id, home_goals: h, away_goals: a, manual: true }),
     });
   }
 
