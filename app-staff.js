@@ -1417,6 +1417,7 @@ async function deleteResult(id) {
   if (!confirm(`Poistetaanko tulos ottelusta ${id}? Tätä ei voi peruuttaa.`)) return;
   await api(`results?match_id=eq.${id}`, { method: 'DELETE' });
   delete results[id];
+  manualResultTouch.delete(id); // tulos poistettu kokonaan — football-data.org saa täyttää sen uudelleen
   const el = document.getElementById('ac-' + id);
   const m  = MATCHES.find(x => x.id === id);
   if (el && m) el.outerHTML = adminCardHtml(m);
@@ -2505,26 +2506,24 @@ async function init() {
     await loadResults();
     await loadAllPredictions();
     await loadAllBrackets();
-    renderMatches();
-    renderLeaderboard();
-  }, 60_000);
 
-  // Tulosten haku: kerran minuutissa 30 min ajan pelin päättymisestä
-  // (football-data.org päivittää tuloksen ~0-15 min pelin jälkeen)
-  setInterval(async () => {
+    // Tulosten haku football-data.org:sta: kerran minuutissa 30 min ajan
+    // pelin oletetusta päättymisestä (football-data.org päivittää tuloksen ~0-15 min pelin jälkeen).
+    // loadResults() on juuri ajettu yllä, joten results-objekti on tuore tätä tarkistusta varten.
     const now = Date.now();
     const needsFetch = MATCHES.some(m => {
-      if (results[m.id]) return false; // tulos jo tallennettu
-      const start   = new Date(m.t).getTime();
-      const end     = start + 105 * 60 * 1000; // arvioitu loppu (90+15 min)
-      const window  = end + 30 * 60 * 1000;    // 30 min pelin päättymisestä
+      if (results[m.id]) return false; // tulos jo tallennettu (joko adminilta tai aiemmin API:sta)
+      const start  = new Date(m.t).getTime();
+      const end    = start + 105 * 60 * 1000; // arvioitu loppu (90+15 min)
+      const window = end + 30 * 60 * 1000;    // 30 min pelin päättymisestä
       return now >= end && now <= window;
     });
     if (needsFetch) {
       await fetchLiveResults();
-      renderMatches();
-      renderLeaderboard();
     }
+
+    renderMatches();
+    renderLeaderboard();
   }, 60_000);
   // Sulje profiili Escape-näppäimellä
   document.addEventListener('keydown', e => {
