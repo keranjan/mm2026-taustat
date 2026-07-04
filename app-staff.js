@@ -173,14 +173,14 @@ const MATCHES = [
   {id:'r16',g:'R32',h:'Colombia',    a:'Ghana',       t:'2026-07-04T01:30Z'},  // Kansas City
 
   // ── 16 PARHAAN KIERROS (4.–7.7.) ─────────────────────────
-  {id:'s01',g:'R16',h:'TBD',a:'TBD',t:'2026-07-04T17:00Z'},  // Houston
-  {id:'s02',g:'R16',h:'TBD',a:'TBD',t:'2026-07-04T21:00Z'},  // Philadelphia
-  {id:'s03',g:'R16',h:'TBD',a:'TBD',t:'2026-07-05T16:00Z'},  // Atlanta
-  {id:'s04',g:'R16',h:'TBD',a:'TBD',t:'2026-07-05T20:00Z'},  // New York/NJ
-  {id:'s05',g:'R16',h:'TBD',a:'TBD',t:'2026-07-06T00:00Z'},  // Mexico City
-  {id:'s06',g:'R16',h:'TBD',a:'TBD',t:'2026-07-06T19:00Z'},  // Dallas
-  {id:'s07',g:'R16',h:'TBD',a:'TBD',t:'2026-07-07T00:00Z'},  // Seattle
-  {id:'s08',g:'R16',h:'TBD',a:'TBD',t:'2026-07-07T20:00Z'},  // Vancouver
+  {id:'s01',g:'R16',h:'Canada',      a:'Morocco',     t:'2026-07-04T17:00Z'},  // (Sat 20:00 EEST)
+  {id:'s02',g:'R16',h:'Paraguay',    a:'France',      t:'2026-07-04T21:00Z'},  // (Sun 00:00 EEST)
+  {id:'s03',g:'R16',h:'Brazil',      a:'Norway',      t:'2026-07-05T20:00Z'},  // (Sun 23:00 EEST)
+  {id:'s04',g:'R16',h:'Mexico',      a:'England',     t:'2026-07-06T00:00Z'},  // (Mon 03:00 EEST)
+  {id:'s05',g:'R16',h:'Portugal',    a:'Spain',       t:'2026-07-06T19:00Z'},  // (Mon 22:00 EEST)
+  {id:'s06',g:'R16',h:'USA',         a:'Belgium',     t:'2026-07-07T00:00Z'},  // (Tue 03:00 EEST)
+  {id:'s07',g:'R16',h:'Argentina',   a:'Egypt',       t:'2026-07-07T16:00Z'},  // (Tue 19:00 EEST)
+  {id:'s08',g:'R16',h:'Switzerland', a:'Colombia',    t:'2026-07-07T20:00Z'},  // (Tue 23:00 EEST)
 
   // ── NELJÄNNESVÄLIERÄT (9.–11.7.) ─────────────────────────
   {id:'q01',g:'QF',h:'TBD',a:'TBD',t:'2026-07-09T20:00Z'},   // Boston
@@ -236,7 +236,11 @@ async function toggleSummary() {
    APUFUNKTIOT
 ══════════════════════════════════════════ */
 
-function isLocked(m)   { return (m.g !== 'R32' && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
+// Kierrokset jotka ovat veikattavissa vaikka ne ovat "knockout"-otteluita
+const OPEN_KO = new Set(['R32', 'R16']);
+function isOpenKo(m) { return OPEN_KO.has(m.g); }
+
+function isLocked(m)   { return (!isOpenKo(m) && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
 function isLive(m) {
   // Live kun peli on alkanut, tulosta ei ole vielä tallennettu, ja max 3h aloituksesta
@@ -468,7 +472,7 @@ function stepPred(id, side, delta) {
 function updateUnsavedBanner() {
   const unsavedBanner = document.getElementById('unsaved-banner');
   if (!unsavedBanner || !currentUser) { if (unsavedBanner) unsavedBanner.style.display = 'none'; return; }
-  const openMatches = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
+  const openMatches = MATCHES.filter(m => !isLocked(m) && (isOpenKo(m) || !isKnockout(m)));
   const unsaved = openMatches.filter(m => {
     const local = predictions[m.id];
     if (!local || local.h === null || local.a === null) return false;
@@ -485,7 +489,7 @@ function updateUnsavedBanner() {
 }
 
 function updateProgress() {
-  const open = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
+  const open = MATCHES.filter(m => !isLocked(m) && (isOpenKo(m) || !isKnockout(m)));
   const done = open.filter(m => predDone(m.id)).length;
   const pct  = open.length ? Math.round(done / open.length * 100) : 100;
   document.getElementById('progress-fill').style.width  = pct + '%';
@@ -568,7 +572,7 @@ function matchCardHtml(m) {
   const aDisp  = av !== null ? av : '–';
   const hEmpty = hv === null ? ' empty' : '';
   const aEmpty = av === null ? ' empty' : '';
-  const canPred = !locked && (m.g === 'R32' || !isKnockout(m));
+  const canPred = !locked && (isOpenKo(m) || !isKnockout(m));
   const saved  = canPred && isSavedPred(m.id);
   const filled = canPred && hv !== null && av !== null;
   const savedTag = saved
@@ -581,7 +585,7 @@ function matchCardHtml(m) {
     ? `<span class="live-badge">🔴 LIVE${liveScore ? ' ' + liveScore : ''}</span>`
     : locked ? '&#128274; lukittu' : savedTag;
 
-  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${m.g === 'R32' ? 'r32' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
+  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${isOpenKo(m) ? 'r32' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
     <div class="match-row">
       <div class="team-block">
         <span class="flag">${flag(m.h)}</span>
@@ -687,7 +691,7 @@ function refreshCard(id) {
 async function savePredictions() {
   const name = document.getElementById('username').value.trim();
   if (!name) { toast('Kirjoita nimesi ensin', 'error'); return; }
-  const open = MATCHES.filter(m => !isLocked(m) && (m.g === 'R32' || !isKnockout(m)));
+  const open = MATCHES.filter(m => !isLocked(m) && (isOpenKo(m) || !isKnockout(m)));
   if (!open.some(m => predDone(m.id))) { toast('Syötä vähintään yksi tulos ensin', 'error'); return; }
 
   const btn = document.getElementById('save-btn');
@@ -707,7 +711,7 @@ async function savePredictions() {
   });
   const safeRows = rows.filter(r => {
     const m = MATCHES.find(m => m.id === r.match_id);
-    return m && Date.now() < new Date(m.t).getTime() && !results[m.id] && (m.g === 'R32' || !ROUND_NAMES[m.g]);
+    return m && Date.now() < new Date(m.t).getTime() && !results[m.id] && (isOpenKo(m) || !ROUND_NAMES[m.g]);
   });
 
   if (safeRows.length === 0) {
