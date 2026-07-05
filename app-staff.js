@@ -183,7 +183,7 @@ const MATCHES = [
   {id:'s08',g:'R16',h:'Switzerland', a:'Colombia',    t:'2026-07-07T20:00Z'},  // (Tue 23:00 EEST)
 
   // ── NELJÄNNESVÄLIERÄT (9.–11.7.) ─────────────────────────
-  {id:'q01',g:'QF',h:'TBD',a:'TBD',t:'2026-07-09T20:00Z'},   // Boston
+  {id:'q01',g:'QF',h:'France',       a:'Morocco',    t:'2026-07-09T20:00Z'},   // Boston
   {id:'q02',g:'QF',h:'TBD',a:'TBD',t:'2026-07-10T19:00Z'},   // Los Angeles
   {id:'q03',g:'QF',h:'TBD',a:'TBD',t:'2026-07-11T21:00Z'},   // Miami
   {id:'q04',g:'QF',h:'TBD',a:'TBD',t:'2026-07-12T01:00Z'},   // Kansas City
@@ -238,7 +238,9 @@ async function toggleSummary() {
 
 // Kierrokset jotka ovat veikattavissa vaikka ne ovat "knockout"-otteluita
 const OPEN_KO = new Set(['R32', 'R16']);
-function isOpenKo(m) { return OPEN_KO.has(m.g); }
+// Yksittäiset knockout-ottelut jotka on avattu veikattaviksi (id-kohtaisesti)
+const OPEN_KO_MATCHES = new Set(['q01']);
+function isOpenKo(m) { return OPEN_KO.has(m.g) || OPEN_KO_MATCHES.has(m.id); }
 
 function isLocked(m)   { return (!isOpenKo(m) && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
 function isKnockout(m) { return !!ROUND_NAMES[m.g]; }
