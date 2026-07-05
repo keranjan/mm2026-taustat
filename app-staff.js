@@ -74,7 +74,7 @@ function flag(name) { return name === 'TBD' ? '🏳️' : (FLAGS[name] || '🏳�
 const ROUND_NAMES = {
   'R32': '32 parhaan kierros',
   'R16': '16 parhaan kierros',
-  'QF':  'Neljännesvälierät',
+  'QF':  'Puolivälierät',
   'SF':  'Välierät',
   '3.':  'Pronssiottelu',
   '🏆':  '🏆 Finaali',
@@ -182,7 +182,7 @@ const MATCHES = [
   {id:'s07',g:'R16',h:'Argentina',   a:'Egypt',       t:'2026-07-07T16:00Z'},  // (Tue 19:00 EEST)
   {id:'s08',g:'R16',h:'Switzerland', a:'Colombia',    t:'2026-07-07T20:00Z'},  // (Tue 23:00 EEST)
 
-  // ── NELJÄNNESVÄLIERÄT (9.–11.7.) ─────────────────────────
+  // ── PUOLIVÄLIERÄT (9.–11.7.) ─────────────────────────
   {id:'q01',g:'QF',h:'France',       a:'Morocco',    t:'2026-07-09T20:00Z'},   // Boston
   {id:'q02',g:'QF',h:'TBD',a:'TBD',t:'2026-07-10T19:00Z'},   // Los Angeles
   {id:'q03',g:'QF',h:'TBD',a:'TBD',t:'2026-07-11T21:00Z'},   // Miami
