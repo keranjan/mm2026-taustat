@@ -189,7 +189,7 @@ const MATCHES = [
   {id:'q04',g:'QF',h:'Argentina',    a:'Switzerland',t:'2026-07-12T01:00Z'},   // Kansas City
 
   // ── VÄLIERÄT (14.–15.7.) ──────────────────────────────────
-  {id:'sf1',g:'SF',h:'TBD',a:'TBD',t:'2026-07-14T19:00Z'},   // Dallas (AT&T)
+  {id:'sf1',g:'SF',h:'France',       a:'Spain',      t:'2026-07-14T19:00Z'},   // Dallas (AT&T)
   {id:'sf2',g:'SF',h:'TBD',a:'TBD',t:'2026-07-15T19:00Z'},   // Atlanta (Mercedes-Benz)
 
   // ── PRONSSIOTTELU & FINAALI ────────────────────────────────
@@ -239,7 +239,7 @@ async function toggleSummary() {
 // Kierrokset jotka ovat veikattavissa vaikka ne ovat "knockout"-otteluita
 const OPEN_KO = new Set(['R32', 'R16', 'QF']);
 // Yksittäiset knockout-ottelut jotka on avattu veikattaviksi (id-kohtaisesti)
-const OPEN_KO_MATCHES = new Set();
+const OPEN_KO_MATCHES = new Set(['sf1']);
 function isOpenKo(m) { return OPEN_KO.has(m.g) || OPEN_KO_MATCHES.has(m.id); }
 
 function isLocked(m)   { return (!isOpenKo(m) && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
