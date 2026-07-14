@@ -864,12 +864,14 @@ function renderLeaderboard() {
           <div class="lb-name-cell">
             <div class="lb-name">${u.name}${u.name === currentUser ? ' <span class="lb-me-tag">(sinä)</span>' : ''}</div>
             ${isWeekly ? `<div class="lb-weekly-row"><span class="badge-weekly">⭐ viikon veikkaaja</span></div>` : ''}
-            ${u.bracketPts > 0 ? `<div class="lb-weekly-row"><span class="badge-bracket" title="Mestaruusveikkauksen bonuspisteet">🏆 +${u.bracketPts}p mestaruus</span></div>` : ''}
             ${icons ? `<div class="lb-icons lb-icons-mobile">${icons}</div>` : ''}
           </div>
           <div class="lb-icons lb-icons-desktop">${icons}</div>
           <div class="lb-breakdown">${u.exact} / ${u.diff} / ${u.win}</div>
-          <div class="lb-pts">${u.total}</div>
+          <div class="lb-pts-cell">
+            <div class="lb-pts">${u.total}</div>
+            ${u.bracketPts > 0 ? `<div class="lb-pts-split" title="Otteluveikkaukset ${u.total - u.bracketPts}p + mestaruusveikkaus ${u.bracketPts}p">${u.total - u.bracketPts} + <span class="lb-pts-bracket">🏆${u.bracketPts}</span></div>` : ''}
+          </div>
         </div>`;
       }).join('')
     : '<div class="empty-state">Ei vielä pelaajia – tallenna veikkauksesi näkyäksesi tässä.</div>';
@@ -1900,6 +1902,35 @@ function cleanupBracketDependencies(target) {
   if (target.champion && !finalists.includes(target.champion)) target.champion = null;
 }
 
+// Onko pelaajan bracket-valinta oikein verrattuna actualBracket-tuloksiin?
+// Palauttaa 'correct', 'wrong' tai null (ei vielä tulosta)
+function bracketSlotStatus(key, team) {
+  if (!team) return null;
+  const R16 = ['r16_1','r16_2','r16_3','r16_4','r16_5','r16_6','r16_7','r16_8'];
+  const QF  = ['qf1','qf2','qf3','qf4'];
+
+  if (R16.includes(key)) {
+    const actual = R16.map(k => actualBracket[k]).filter(Boolean);
+    if (actual.length === 0) return null;
+    return actual.includes(team) ? 'correct' : 'wrong';
+  }
+  if (QF.includes(key)) {
+    const actual = QF.map(k => actualBracket[k]).filter(Boolean);
+    if (actual.length === 0) return null;
+    return actual.includes(team) ? 'correct' : 'wrong';
+  }
+  if (key === 'finalist1' || key === 'finalist2') {
+    const actual = [actualBracket.finalist1, actualBracket.finalist2].filter(Boolean);
+    if (actual.length === 0) return null;
+    return actual.includes(team) ? 'correct' : 'wrong';
+  }
+  if (key === 'champion') {
+    if (!actualBracket.champion) return null;
+    return actualBracket.champion === team ? 'correct' : 'wrong';
+  }
+  return null;
+}
+
 function bracketSlotHtml(key, label, type, target, locked) {
   target = target || bracket;
   locked = locked === undefined ? bracketLocked : locked;
@@ -1907,12 +1938,19 @@ function bracketSlotHtml(key, label, type, target, locked) {
   const idPrefix = isAdmin ? 'admin-' : '';
   const team = target[key];
   const filled = !!team;
-  const cls = `bracket-slot ${type} ${filled ? 'filled' : 'empty'}`;
+
+  // Näytä oikein/väärin-tila vain pelaajan omassa bracketissa (ei admin-näkymässä)
+  const status = (!isAdmin && filled) ? bracketSlotStatus(key, team) : null;
+  const statusCls = status ? ` ${status}` : '';
+  const statusIcon = status === 'correct' ? '<span class="slot-check">✓</span>'
+                   : status === 'wrong'   ? '<span class="slot-cross">✗</span>' : '';
+
+  const cls = `bracket-slot ${type} ${filled ? 'filled' : 'empty'}${statusCls}`;
   const onclick = locked ? '' : `onclick="openTeamPicker('${key}', ${isAdmin ? 'true' : 'false'})"`;
   return `<div class="${cls}" id="${idPrefix}slot-${key}" ${onclick}>
     <span class="slot-label">${label}</span>
     ${filled
-      ? `<span class="flag">${flag(team)}</span><span class="team-name">${fi(team)}</span>`
+      ? `<span class="flag">${flag(team)}</span><span class="team-name">${fi(team)}</span>${statusIcon}`
       : `<span>${locked ? 'Ei valittu' : 'Valitse joukkue'}</span>`}
   </div>`;
 }
@@ -2512,6 +2550,7 @@ async function init() {
     await loadResults();
     await loadAllPredictions();
     await loadAllBrackets();
+    await loadActualBracket();
 
     // Tulosten haku football-data.org:sta: kerran minuutissa 30 min ajan
     // pelin oletetusta päättymisestä (football-data.org päivittää tuloksen ~0-15 min pelin jälkeen).
