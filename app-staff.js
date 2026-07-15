@@ -563,6 +563,46 @@ function topPredictions(id) {
   return `<div class="top-predictions"><span class="top-pred-label">Suosituimmat tulosveikkaukset</span>${top3}</div>`;
 }
 
+function isFinal(m) { return m.g === '🏆'; }
+
+// Finaalin voittaja: ensisijaisesti adminin syöttämä mestari (kestää myös
+// rangaistuspotkuratkaisun), muuten pääteltynä normaaliajan tuloksesta.
+function finalChampion(m) {
+  if (actualBracket.champion) return actualBracket.champion;
+  const r = results[m.id];
+  if (!r || r.h === null || r.a === null || r.h === r.a) return null;
+  return r.h > r.a ? m.h : m.a;
+}
+
+function finalCountdownHtml(m) {
+  const diff = new Date(m.t).getTime() - Date.now();
+  if (diff <= 0) return '';
+  return `<div class="final-countdown" id="final-countdown" data-t="${m.t}">
+    <span class="fc-label">Finaaliin</span>
+    <span class="fc-time">${fmtCountdown(diff)}</span>
+  </div>`;
+}
+
+function fmtCountdown(ms) {
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const mi = Math.floor((s % 3600) / 60);
+  const se = s % 60;
+  const seg = (v, l) => `<span class="fc-seg"><b>${v}</b><i>${l}</i></span>`;
+  return (d > 0 ? seg(d, 'pv') : '') + seg(h, 't') + seg(mi, 'min') + seg(se, 's');
+}
+
+// Päivittää lähtölaskennan sekunnin välein koko korttia renderöimättä
+setInterval(() => {
+  const el = document.getElementById('final-countdown');
+  if (!el) return;
+  const diff = new Date(el.dataset.t).getTime() - Date.now();
+  if (diff <= 0) { renderMatches(); return; }
+  const t = el.querySelector('.fc-time');
+  if (t) t.innerHTML = fmtCountdown(diff);
+}, 1000);
+
 function matchCardHtml(m) {
   const p      = getPred(m.id);
   const locked = isLocked(m);
@@ -587,7 +627,21 @@ function matchCardHtml(m) {
     ? `<span class="live-badge">🔴 LIVE${liveScore ? ' ' + liveScore : ''}</span>`
     : locked ? '&#128274; lukittu' : savedTag;
 
-  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${isOpenKo(m) ? 'r32' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
+  // ── Finaalin erikoiselementit ──
+  const fin = isFinal(m);
+  const champ = fin ? finalChampion(m) : null;
+  const finalBanner = fin ? `<div class="final-banner">🏆 MM-Finaali 2026</div>` : '';
+  const champReveal = champ
+    ? `<div class="champion-reveal">
+         <div class="cr-label">Maailmanmestari 2026</div>
+         <div class="cr-team"><span class="cr-flag">${flag(champ)}</span>${fi(champ)}</div>
+       </div>`
+    : '';
+  const countdown = fin && !champ ? finalCountdownHtml(m) : '';
+
+  return `<div class="match-card ${locked ? 'locked' : ''} ${live ? 'live' : ''} ${isKnockout(m) ? 'knockout' : ''} ${isOpenKo(m) ? 'r32' : ''} ${fin ? 'final' : ''} ${champ ? 'crowned' : ''} ${cardExtraClass(m.id)}" id="mc-${m.id}">
+    ${finalBanner}
+    ${champReveal}
     <div class="match-row">
       <div class="team-block">
         <span class="flag">${flag(m.h)}</span>
@@ -615,6 +669,7 @@ function matchCardHtml(m) {
       <span>${ROUND_NAMES[m.g] ? `${fmtDate(m.t)} &middot; ${fmtTime(m.t)}` : `Lohko ${m.g} &middot; ${fmtTime(m.t)}`}</span>
       <span>${metaRight}</span>
     </div>
+    ${countdown}
     ${resultBadge(m.id)}
     ${locked ? topPredictions(m.id) : ''}
   </div>`;
