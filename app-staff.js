@@ -193,8 +193,8 @@ const MATCHES = [
   {id:'sf2',g:'SF',h:'England',      a:'Argentina', t:'2026-07-15T19:00Z'},   // Atlanta (Mercedes-Benz)
 
   // ── PRONSSIOTTELU & FINAALI ────────────────────────────────
-  {id:'tp1',g:'3.',h:'TBD',a:'TBD',t:'2026-07-18T21:00Z'},   // Miami (Hard Rock)
-  {id:'fi1',g:'🏆',h:'TBD',a:'TBD',t:'2026-07-19T19:00Z'},   // New York/NJ (MetLife)
+  {id:'tp1',g:'3.',h:'France',       a:'England',   t:'2026-07-18T21:00Z'},   // Miami (Hard Rock)
+  {id:'fi1',g:'🏆',h:'Spain',        a:'Argentina', t:'2026-07-19T19:00Z'},   // New York/NJ (MetLife)
 ];
 
 /* ══════════════════════════════════════════
@@ -239,7 +239,7 @@ async function toggleSummary() {
 // Kierrokset jotka ovat veikattavissa vaikka ne ovat "knockout"-otteluita
 const OPEN_KO = new Set(['R32', 'R16', 'QF']);
 // Yksittäiset knockout-ottelut jotka on avattu veikattaviksi (id-kohtaisesti)
-const OPEN_KO_MATCHES = new Set(['sf1', 'sf2']);
+const OPEN_KO_MATCHES = new Set(['sf1', 'sf2', 'tp1', 'fi1']);
 function isOpenKo(m) { return OPEN_KO.has(m.g) || OPEN_KO_MATCHES.has(m.id); }
 
 function isLocked(m)   { return (!isOpenKo(m) && !!ROUND_NAMES[m.g]) || !!results[m.id] || Date.now() >= new Date(m.t).getTime(); }
