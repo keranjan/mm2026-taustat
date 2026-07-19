@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Antonio:wght@700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style-staff.css?v=46" />
+  <link rel="stylesheet" href="style-staff.css?v=51" />
 </head>
 <body>
 
@@ -105,7 +105,6 @@
 
   <!-- Tulostaulukko -->
   <div id="tab-leaderboard" class="section">
-
     <div class="lb-table">
       <div class="lb-head">
         <div>#</div>
@@ -189,6 +188,52 @@
         <button class="btn" id="summary-toggle-btn" onclick="toggleSummary()">Aktivoi yhteenveto</button>
       </div>
 
+      <!-- Turnaustilastot -->
+      <div class="admin-bracket-section">
+        <h3 class="admin-bracket-title">📊 Turnaustilastot (yhteenvetoon)</h3>
+        <p class="chart-sub">Maalit ja maalit/ottelu lasketaan automaattisesti tuloksista. Syötä tähän kortit ja maalintekijät — ne näkyvät yhteenvedossa.</p>
+
+        <div class="ts-cards-input">
+          <label>🟨 Keltaiset kortit yht. <input type="number" id="ts-yellow" min="0" placeholder="esim. 214"></label>
+          <label>🟥 Punaiset kortit yht. <input type="number" id="ts-red" min="0" placeholder="esim. 8"></label>
+        </div>
+
+        <p class="chart-sub" style="margin-top:1rem">Top 5 maalintekijät (joukkue = englanninkielinen nimi lippua varten, esim. "Argentina"):</p>
+        <div class="ts-scorers-input" id="ts-scorers-input">
+          <div class="ts-scorer-row-input">
+            <span>1.</span>
+            <input type="text" id="ts-scorer-name-1" placeholder="Pelaajan nimi" class="ts-name">
+            <input type="text" id="ts-scorer-team-1" placeholder="Maa" class="ts-team">
+            <input type="number" id="ts-scorer-goals-1" placeholder="Maalit" min="0" class="ts-goals">
+          </div>
+          <div class="ts-scorer-row-input">
+            <span>2.</span>
+            <input type="text" id="ts-scorer-name-2" placeholder="Pelaajan nimi" class="ts-name">
+            <input type="text" id="ts-scorer-team-2" placeholder="Maa" class="ts-team">
+            <input type="number" id="ts-scorer-goals-2" placeholder="Maalit" min="0" class="ts-goals">
+          </div>
+          <div class="ts-scorer-row-input">
+            <span>3.</span>
+            <input type="text" id="ts-scorer-name-3" placeholder="Pelaajan nimi" class="ts-name">
+            <input type="text" id="ts-scorer-team-3" placeholder="Maa" class="ts-team">
+            <input type="number" id="ts-scorer-goals-3" placeholder="Maalit" min="0" class="ts-goals">
+          </div>
+          <div class="ts-scorer-row-input">
+            <span>4.</span>
+            <input type="text" id="ts-scorer-name-4" placeholder="Pelaajan nimi" class="ts-name">
+            <input type="text" id="ts-scorer-team-4" placeholder="Maa" class="ts-team">
+            <input type="number" id="ts-scorer-goals-4" placeholder="Maalit" min="0" class="ts-goals">
+          </div>
+          <div class="ts-scorer-row-input">
+            <span>5.</span>
+            <input type="text" id="ts-scorer-name-5" placeholder="Pelaajan nimi" class="ts-name">
+            <input type="text" id="ts-scorer-team-5" placeholder="Maa" class="ts-team">
+            <input type="number" id="ts-scorer-goals-5" placeholder="Maalit" min="0" class="ts-goals">
+          </div>
+        </div>
+        <button class="btn" onclick="saveTournamentStats()" style="margin-top:1rem">Tallenna turnaustilastot</button>
+      </div>
+
       <div id="admin-container"></div>
     </div>
   </div>
@@ -211,6 +256,6 @@
 
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app-staff.js?v=47"></script>
+<script src="app-staff.js?v=51"></script>
 </body>
 </html>

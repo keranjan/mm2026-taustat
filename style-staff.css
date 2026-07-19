@@ -1449,3 +1449,60 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
   .cr-flag { font-size: 26px; }
   .fc-seg b { font-size: 20px; }
 }
+
+/* ── Admin: turnaustilastojen syöttö ── */
+.ts-cards-input { display: flex; gap: 1rem; flex-wrap: wrap; }
+.ts-cards-input label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); flex: 1; min-width: 140px; }
+.ts-cards-input input { padding: 8px 10px; }
+.ts-scorer-row-input { display: grid; grid-template-columns: 24px 1fr 90px 80px; gap: 8px; align-items: center; margin-bottom: 6px; }
+.ts-scorer-row-input span { color: var(--text-muted); font-size: 13px; }
+.ts-scorer-row-input input { padding: 7px 9px; }
+
+/* ── Yhteenveto: turnaustilastot ── */
+.sum-cards-row { display: flex; justify-content: center; gap: 2.5rem; margin-top: 0.5rem; }
+.sum-card-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sum-card-box { width: 34px; height: 46px; border-radius: 4px; }
+.sum-card-box.yellow { background: #e8c000; box-shadow: 0 2px 8px rgba(232,192,0,0.4); }
+.sum-card-box.red    { background: #d83030; box-shadow: 0 2px 8px rgba(216,48,48,0.4); }
+.sum-card-num { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--text); line-height: 1; }
+.sum-card-stat label { font-size: 11px; color: var(--text-muted); }
+.sum-scorers { width: 100%; max-width: 360px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.sum-scorer-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.sum-scorer-row.top { border-color: var(--gold-bright); background: rgba(240,204,96,0.08); }
+.sum-scorer-pos { font-size: 16px; width: 28px; }
+.sum-scorer-name { flex: 1; text-align: left; font-size: 14px; font-weight: 600; }
+.sum-scorer-goals { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--gold-bright); letter-spacing: 1px; }
+
+/* ── Yhteenveto: vaikeimmat ottelut -lista ── */
+.sum-hard-list {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sum-hard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.sum-hard-teams { font-size: 13px; text-align: left; }
+.sum-hard-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 17px;
+  color: var(--gold-bright);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}

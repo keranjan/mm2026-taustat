@@ -208,27 +208,68 @@ let users       = {};
 let currentUser = localStorage.getItem('wc26s_me') || '';
 let adminOpen    = false;
 let summaryActive = false;
+let summaryActivatedAt = '';  // aikaleima jolloin admin aktivoi yhteenvedon
+let tournamentStats = { yellow: null, red: null, scorers: [] }; // admin-syötetyt
 
 async function loadSettings() {
   try {
-    const res = await api('app_settings?key=eq.summary_active&select=value');
+    const res = await api('app_settings?key=in.(summary_active,tournament_stats)&select=key,value');
     if (!res.ok) return;
     const rows = await res.json();
-    summaryActive = rows.length > 0 && rows[0].value === 'true';
+    const summaryRow = rows.find(r => r.key === 'summary_active');
+    // Arvo voi olla 'false', 'true' (vanha muoto) tai aikaleima (esim '1721400000000')
+    const val = summaryRow ? summaryRow.value : 'false';
+    if (val === 'false' || val === '') {
+      summaryActive = false; summaryActivatedAt = '';
+    } else if (val === 'true') {
+      summaryActive = true; summaryActivatedAt = 'legacy';
+    } else {
+      summaryActive = true; summaryActivatedAt = val;
+    }
+    const statsRow = rows.find(r => r.key === 'tournament_stats');
+    if (statsRow) {
+      try { tournamentStats = JSON.parse(statsRow.value); }
+      catch { tournamentStats = { yellow: null, red: null, scorers: [] }; }
+    }
   } catch (e) { console.error('loadSettings:', e); }
 }
 
-async function toggleSummary() {
-  summaryActive = !summaryActive;
+async function saveTournamentStats() {
+  const yellow  = parseInt(document.getElementById('ts-yellow').value) || null;
+  const red     = parseInt(document.getElementById('ts-red').value) || null;
+  const scorers = [];
+  for (let i = 1; i <= 5; i++) {
+    const name = document.getElementById(`ts-scorer-name-${i}`).value.trim();
+    const goals = parseInt(document.getElementById(`ts-scorer-goals-${i}`).value) || 0;
+    const team = document.getElementById(`ts-scorer-team-${i}`).value.trim();
+    if (name) scorers.push({ name, goals, team });
+  }
+  scorers.sort((a, b) => b.goals - a.goals);
+  tournamentStats = { yellow, red, scorers };
   try {
     await api('app_settings?on_conflict=key', {
       method: 'POST',
       prefer: 'resolution=merge-duplicates',
-      body: JSON.stringify({ key: 'summary_active', value: String(summaryActive) }),
+      body: JSON.stringify({ key: 'tournament_stats', value: JSON.stringify(tournamentStats) }),
+    });
+    toast('Turnaustilastot tallennettu!', 'success');
+  } catch (e) { toast('Tallennus epäonnistui', 'error'); }
+}
+
+async function toggleSummary() {
+  summaryActive = !summaryActive;
+  // Aktivoitaessa tallennetaan aikaleima (jotta pelaajille avautuu kertaalleen automaattisesti)
+  const value = summaryActive ? String(Date.now()) : 'false';
+  summaryActivatedAt = summaryActive ? value : '';
+  try {
+    await api('app_settings?on_conflict=key', {
+      method: 'POST',
+      prefer: 'resolution=merge-duplicates',
+      body: JSON.stringify({ key: 'summary_active', value }),
     });
   } catch (e) { console.error('saveSettings:', e); }
   applySummaryVisibility();
-  if (summaryActive) toast('Yhteenveto näkyvissä kaikille pelaajille!', 'success');
+  if (summaryActive) toast('Yhteenveto näkyvissä — avautuu pelaajille automaattisesti!', 'success');
   else toast('Yhteenveto piilotettu', 'info');
 }
 
@@ -1532,6 +1573,7 @@ function adminCardHtml(m) {
 
 function renderAdmin() {
   renderAdminBracket();
+  prefillTournamentStats();
   const sorted = [...MATCHES].sort((a, b) => new Date(a.t) - new Date(b.t));
   let html = '', lastDay = '';
   for (const m of sorted) {
@@ -1540,6 +1582,21 @@ function renderAdmin() {
     html += adminCardHtml(m);
   }
   document.getElementById('admin-container').innerHTML = html;
+}
+
+function prefillTournamentStats() {
+  const y = document.getElementById('ts-yellow');
+  const r = document.getElementById('ts-red');
+  if (y && tournamentStats.yellow !== null) y.value = tournamentStats.yellow;
+  if (r && tournamentStats.red !== null) r.value = tournamentStats.red;
+  (tournamentStats.scorers || []).slice(0, 5).forEach((s, i) => {
+    const n = document.getElementById(`ts-scorer-name-${i+1}`);
+    const t = document.getElementById(`ts-scorer-team-${i+1}`);
+    const g = document.getElementById(`ts-scorer-goals-${i+1}`);
+    if (n) n.value = s.name || '';
+    if (t) t.value = s.team || '';
+    if (g) g.value = s.goals || '';
+  });
 }
 
 /* ══════════════════════════════════════════
@@ -1575,6 +1632,23 @@ function applySummaryVisibility() {
   if (tab) tab.style.display = show ? '' : 'none';
   const btn = document.getElementById('summary-toggle-btn');
   if (btn) btn.textContent = show ? 'Piilota yhteenveto' : 'Aktivoi yhteenveto';
+}
+
+// Avaa yhteenveto automaattisesti ensimmäisellä kerralla kun admin on sen aktivoinut.
+// Kukin pelaaja näkee auto-avauksen vain kerran per aktivointi (muistetaan localStoragessa).
+function maybeAutoOpenSummary() {
+  if (!summaryActive || !summaryActivatedAt) return;
+  const seen = localStorage.getItem('wc26s_summary_seen');
+  if (seen === summaryActivatedAt) return; // tämä aktivointi jo nähty
+
+  // Merkitään nähdyksi ja avataan yhteenveto ensimmäisenä
+  localStorage.setItem('wc26s_summary_seen', summaryActivatedAt);
+  const navBtn = document.getElementById('nav-summary');
+  showTab('summary', navBtn && navBtn.style.display !== 'none' ? navBtn : null);
+  // Varmista että nav-napit korostuvat oikein
+  document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(b => {
+    b.classList.toggle('active', b.id === 'nav-summary' || b.id === 'mobile-nav-summary');
+  });
 }
 
 
@@ -2427,6 +2501,18 @@ function renderSummary() {
     }
   }
 
+  // ── Turnaustilastot (lasketut tuloksista) ───────────────
+  const playedMatches = MATCHES.filter(m => results[m.id] && results[m.id].h !== null && results[m.id].a !== null);
+  const totalGoals = playedMatches.reduce((s, m) => s + results[m.id].h + results[m.id].a, 0);
+  const goalsPerMatch = playedMatches.length ? (totalGoals / playedMatches.length) : 0;
+
+  // Eniten maaleja sisältänyt ottelu
+  const highestScoring = [...playedMatches].sort((a, b) =>
+    (results[b.id].h + results[b.id].a) - (results[a.id].h + results[a.id].a))[0];
+  // Suurin voittomarginaali
+  const biggestWin = [...playedMatches].sort((a, b) =>
+    Math.abs(results[b.id].h - results[b.id].a) - Math.abs(results[a.id].h - results[a.id].a))[0];
+
   // ── Rakennetaan slaidit ──────────────────────────────────
   const currentLevel = TEAM_LEVELS.find(l => l.max === null || totalGroupPts < l.max) || TEAM_LEVELS[TEAM_LEVELS.length - 1];
 
@@ -2476,12 +2562,29 @@ function renderSummary() {
       </div>
     `),
 
-    // 6. Vaikein ottelu
-    summarySlideHtml('😤', 'Vaikein ottelu', hardest ? `
-      <div class="sum-match-name">${fi(hardest.m.h)} ${flag(hardest.m.h)} – ${flag(hardest.m.a)} ${fi(hardest.m.a)}</div>
-      <div class="sum-result-badge">${results[hardest.m.id].h}–${results[hardest.m.id].a}</div>
-      <div class="sum-stat-sub">Vain <strong>${hardest.hits}/${hardest.total}</strong> veikkaajaa arvasi oikein (${Math.round(hardest.pct*100)}%)</div>
-    ` : '<p>Ei tarpeeksi dataa</p>'),
+    // 6. Vaikeimmat ottelut (0 oikeaa veikkausta)
+    (() => {
+      const zeroHitMatches = matchDifficulty.filter(d => d.hits === 0 && d.total > 0)
+        .sort((a, b) => new Date(a.m.t) - new Date(b.m.t));
+      if (zeroHitMatches.length === 0) {
+        // Jos jokaisessa ottelussa oli edes yksi osuma, näytetään yksittäinen vaikein
+        return summarySlideHtml('😤', 'Vaikein ottelu', hardest ? `
+          <div class="sum-match-name">${fi(hardest.m.h)} ${flag(hardest.m.h)} – ${flag(hardest.m.a)} ${fi(hardest.m.a)}</div>
+          <div class="sum-result-badge">${results[hardest.m.id].h}–${results[hardest.m.id].a}</div>
+          <div class="sum-stat-sub"><strong>${hardest.hits}/${hardest.total}</strong> veikkaajaa arvasi oikein (${Math.round(hardest.pct*100)}%)</div>
+        ` : '<p>Ei tarpeeksi dataa</p>');
+      }
+      return summarySlideHtml('😤', 'Vaikeimmat ottelut', `
+        <p class="sum-stat-sub" style="margin-bottom:0.75rem">Otteluita, joista kukaan ei arvannut oikein</p>
+        <div class="sum-hard-list">
+          ${zeroHitMatches.map(d => `
+            <div class="sum-hard-row">
+              <span class="sum-hard-teams">${flag(d.m.h)} ${fi(d.m.h)} – ${fi(d.m.a)} ${flag(d.m.a)}</span>
+              <span class="sum-hard-score">${results[d.m.id].h}–${results[d.m.id].a}</span>
+            </div>`).join('')}
+        </div>
+      `);
+    })(),
 
     // 7. Helpoin ottelu
     summarySlideHtml('😎', 'Helpoin ottelu', easiest ? `
@@ -2514,6 +2617,58 @@ function renderSummary() {
       ${actualBracket.champion ? `<div class="sum-champion-reveal">🏆 ${flag(actualBracket.champion)} ${fi(actualBracket.champion)}</div>` : ''}
     `, 'var(--gold-bright)'),
 
+    // ── TURNAUSTILASTOT ──
+    // Maalit
+    summarySlideHtml('⚽', 'Maalijuhla', `
+      <div class="sum-stat-big">${totalGoals}</div>
+      <div class="sum-stat-sub">maalia ${playedMatches.length} ottelussa</div>
+      <div class="sum-stats-row" style="margin-top:1rem">
+        <div class="sum-mini-stat"><span>${goalsPerMatch.toFixed(2)}</span><label>maalia / ottelu</label></div>
+      </div>
+    `, 'var(--green-bright)'),
+
+    // Maalirikkain ottelu + suurin voitto
+    summarySlideHtml('🎆', 'Ottelujen ääripäät', `
+      ${highestScoring ? `
+        <div class="sum-stat-sub" style="margin-bottom:2px">Maalirikkain ottelu</div>
+        <div class="sum-match-name">${fi(highestScoring.h)} ${flag(highestScoring.h)} ${results[highestScoring.id].h}–${results[highestScoring.id].a} ${flag(highestScoring.a)} ${fi(highestScoring.a)}</div>
+        <div class="sum-stat-sub" style="color:var(--green-bright)">${results[highestScoring.id].h + results[highestScoring.id].a} maalia</div>
+      ` : ''}
+      ${biggestWin ? `
+        <div class="sum-stat-sub" style="margin:0.9rem 0 2px">Suurin voittomarginaali</div>
+        <div class="sum-match-name">${fi(biggestWin.h)} ${flag(biggestWin.h)} ${results[biggestWin.id].h}–${results[biggestWin.id].a} ${flag(biggestWin.a)} ${fi(biggestWin.a)}</div>
+        <div class="sum-stat-sub" style="color:var(--green-bright)">${Math.abs(results[biggestWin.id].h - results[biggestWin.id].a)} maalin ero</div>
+      ` : ''}
+    `),
+
+    // Kortit (admin-syötetty)
+    ...((tournamentStats.yellow !== null || tournamentStats.red !== null) ? [summarySlideHtml('🟨', 'Kurinpito', `
+      <div class="sum-cards-row">
+        <div class="sum-card-stat">
+          <div class="sum-card-box yellow"></div>
+          <span class="sum-card-num">${tournamentStats.yellow ?? '—'}</span>
+          <label>keltaista korttia</label>
+        </div>
+        <div class="sum-card-stat">
+          <div class="sum-card-box red"></div>
+          <span class="sum-card-num">${tournamentStats.red ?? '—'}</span>
+          <label>punaista korttia</label>
+        </div>
+      </div>
+    `, '#e0b000')] : []),
+
+    // Top 5 maalintekijät (admin-syötetty)
+    ...(tournamentStats.scorers && tournamentStats.scorers.length ? [summarySlideHtml('👟', 'Maalikuninkaat', `
+      <div class="sum-scorers">
+        ${tournamentStats.scorers.slice(0, 5).map((s, i) => `
+          <div class="sum-scorer-row ${i === 0 ? 'top' : ''}">
+            <span class="sum-scorer-pos">${['🥇','🥈','🥉','4.','5.'][i]}</span>
+            <span class="sum-scorer-name">${s.team ? flag(s.team) + ' ' : ''}${s.name}</span>
+            <span class="sum-scorer-goals">${s.goals} ⚽</span>
+          </div>`).join('')}
+      </div>
+    `, 'var(--gold-bright)')] : []),
+
     // 11. Henkilökohtainen slide
     ...(me && myData ? [summarySlideHtml('👤', `Sinun turnauksesi, ${me.name.split(' ')[0]}!`, `
       <div class="sum-personal">
@@ -2543,6 +2698,7 @@ function renderSummary() {
     summarySlideHtml('👋', 'Nähdään 2030!', `
       <p>Kiitos kaikille turnauksen veikkaamisesta!<br>Oli hienoa kisailla yhdessä. ⚽</p>
       <div class="sum-stat-sub" style="margin-top:1rem">P2014/2 — MM 2026</div>
+      <button class="btn" style="margin-top:1.25rem" onclick="closeSummaryToPicks()">Sulje yhteenveto →</button>
     `, 'var(--gold)'),
 
   ];
@@ -2582,6 +2738,11 @@ function summaryGoTo(idx) {
 function summaryNext() { summaryGoTo(summaryCurrentSlide + 1); }
 function summaryPrev() { summaryGoTo(summaryCurrentSlide - 1); }
 
+function closeSummaryToPicks() {
+  const picksBtn = document.querySelector('.nav-btn[onclick*="picks"]');
+  showTab('picks', picksBtn);
+}
+
 async function init() {
   if (currentUser) {
     document.getElementById('username').value = currentUser;
@@ -2599,6 +2760,7 @@ async function init() {
   await loadActualBracket();
   renderMatches();
   renderLeaderboard();
+  maybeAutoOpenSummary();  // kaiken datan latauksen jälkeen, jotta yhteenveto ei ole tyhjä
 
   // Normaali päivityssykli: 60s
   setInterval(async () => {
