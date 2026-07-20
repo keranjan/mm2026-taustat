@@ -2529,6 +2529,25 @@ function renderSummary() {
       <div class="sum-stat-sub">yhteensä koko porukalta</div>
       <div class="sum-level-badge">${currentLevel.name}</div>
       <div class="sum-stat-sub" style="margin-top:0.5rem">${ranked.length} veikkaajaa · ${Object.keys(results).length} ottelua pelattu</div>
+      <div class="sum-prizes">
+        <div class="sum-prizes-title">🎁 Palkinnot</div>
+        <div class="sum-prize-tier">
+          <span class="sum-prize-level">Taso 0</span>
+          <span class="sum-prize-items">Kiitokset ja nyrkit</span>
+        </div>
+        <div class="sum-prize-tier">
+          <span class="sum-prize-level">Taso 1</span>
+          <span class="sum-prize-items">Tikkarit</span>
+        </div>
+        <div class="sum-prize-tier">
+          <span class="sum-prize-level">Taso 2</span>
+          <span class="sum-prize-items"><b>Top 3:</b> Lahjakortit<br>Tikkarit</span>
+        </div>
+        <div class="sum-prize-tier">
+          <span class="sum-prize-level">Taso 3</span>
+          <span class="sum-prize-items"><b>Top 3:</b> Sijoituspalkinnot<br>Cornyt</span>
+        </div>
+      </div>
     `, 'var(--green-bright)'),
 
     // 3. Voittaja

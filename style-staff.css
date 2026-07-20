@@ -1073,6 +1073,44 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
   font-size: 11px;
   color: var(--text-muted);
 }
+/* Palkintolistaus tulostaulukon yhteistavoitteessa */
+.team-goal-prizes {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+.team-goal-prizes summary {
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--gold-light);
+  font-weight: 500;
+  list-style: none;
+  user-select: none;
+}
+.team-goal-prizes summary::-webkit-details-marker { display: none; }
+.team-goal-prizes summary::after { content: ' ▾'; color: var(--text-muted); }
+.team-goal-prizes[open] summary::after { content: ' ▴'; }
+.tg-prize-tier {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tg-prize-tier:last-child { border-bottom: none; }
+.tg-prize-tier:first-of-type { margin-top: 0.5rem; }
+.tg-prize-level {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--gold-light);
+  white-space: nowrap;
+  min-width: 52px;
+  padding-top: 1px;
+}
+.tg-prize-items { font-size: 12px; line-height: 1.35; color: var(--text); }
+.tg-prize-items b { color: var(--gold-bright); font-weight: 600; }
 /* Tasolta toiselle siirtyminen — kultainen korostus */
 .team-goal.level-up {
   border-color: var(--gold-bright);
@@ -1506,3 +1544,43 @@ input:disabled { opacity: 0.35; cursor: not-allowed; }
   letter-spacing: 1px;
   white-space: nowrap;
 }
+
+/* ── Yhteenveto: palkintolistaus ── */
+.sum-prizes {
+  width: 100%;
+  max-width: 360px;
+  margin: 1.25rem auto 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(201,162,39,0.25);
+}
+.sum-prizes-title {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  margin-bottom: 0.7rem;
+}
+.sum-prize-tier {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.sum-prize-tier:last-child { border-bottom: none; }
+.sum-prize-level {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--gold-light);
+  white-space: nowrap;
+  min-width: 58px;
+  padding-top: 2px;
+}
+.sum-prize-items {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.sum-prize-items b { color: var(--gold-bright); font-weight: 600; }
